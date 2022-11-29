@@ -1,0 +1,15 @@
+Building
+--------
+
+Install build tools and dependencies:
+  $ sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
+  $ sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
+
+Configure Nginx:
+  $ ./configure --with-compat
+
+Configure and build Nginx OTel module:
+  $ mkdir build
+  $ cd build
+  $ cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
+  $ make
