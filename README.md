@@ -45,6 +45,21 @@ Dumping all the requests could be useful even in non-distributed environment.
   }
 ```
 
+### Parent-based Tracing
+
+```nginx
+http {
+    server {
+        location / {
+            otel_trace on;
+            otel_trace_context propagate;
+
+            proxy_pass http://backend;
+        }
+    }
+}
+```
+
 ## How to Use
 
 ### Directives
@@ -54,6 +69,10 @@ Dumping all the requests could be useful even in non-distributed environment.
 **`otel_trace`** `on | off | “$var“;`
 
 The argument is a “complex value”, which should result in `on`/`off` or `1`/`0`. Default is `off`.
+
+**`otel_trace_context`** `ignore | extract | inject | propagate;`
+
+Defines how to propagate traceparent/tracestate headers. `extract` uses existing trace context from request. `inject` adds new context to request, rewriting existing headers if any. `propagate` updates existing context (i.e. combines `extract` and `inject`). `ignore` skips context headers processing. Default is `ignore`.
 
 #### Available in `http` context
 
