@@ -12,6 +12,11 @@ extern ngx_module_t gHttpModule;
 
 namespace {
 
+struct OtelCtx {
+    TraceContext parent;
+    TraceContext current;
+};
+
 struct MainConf {
     ngx_str_t endpoint;
     ngx_msec_t interval;
@@ -23,9 +28,25 @@ struct MainConf {
 
 struct LocationConf {
     ngx_http_complex_value_t* trace;
+    ngx_uint_t traceContext;
 };
 
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+
+namespace Propagation {
+
+const ngx_uint_t Extract = 1;
+const ngx_uint_t Inject = 2;
+
+/*const*/ ngx_conf_enum_t Types[] = {
+    { ngx_string("ignore"), 0 },
+    { ngx_string("extract"), Extract },
+    { ngx_string("inject"), Inject },
+    { ngx_string("propagate"), Extract | Inject },
+    { ngx_null_string, 0 }
+};
+
+}
 
 ngx_command_t gCommands[] = {
 
@@ -45,6 +66,13 @@ ngx_command_t gCommands[] = {
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(LocationConf, trace) },
+
+    { ngx_string("otel_trace_context"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_enum_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(LocationConf, traceContext),
+      &Propagation::Types },
 
       ngx_null_command
 };
@@ -85,6 +113,128 @@ StrView toStrView(ngx_str_t str)
     return StrView((char*)str.data, str.len);
 }
 
+ngx_str_t toNgxStr(StrView str)
+{
+    return ngx_str_t{str.size(), (u_char*)str.data()};
+}
+
+OtelCtx* getOtelCtx(ngx_http_request_t* r)
+{
+    return (OtelCtx*)ngx_http_get_module_ctx(r, gHttpModule);
+}
+
+OtelCtx* createOtelCtx(ngx_http_request_t* r)
+{
+    static_assert(std::is_trivially_destructible<OtelCtx>::value, "");
+
+    auto storage = ngx_pcalloc(r->pool, sizeof(OtelCtx));
+    if (storage == NULL) {
+        return NULL;
+    }
+
+    auto ctx = new (storage) OtelCtx{};
+    ngx_http_set_ctx(r, ctx, gHttpModule);
+
+    return ctx;
+}
+
+ngx_table_elt_t* findHeader(ngx_list_t* list, ngx_uint_t hash, StrView key)
+{
+    auto part = &list->part;
+    auto elts = (ngx_table_elt_t*)part->elts;
+
+    for (ngx_uint_t i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            elts = (ngx_table_elt_t*)part->elts;
+            i = 0;
+        }
+
+        if (elts[i].hash != hash || elts[i].key.len != key.size() ||
+                ngx_memcmp(elts[i].lowcase_key, key.data(), key.size()) != 0) {
+            continue;
+        }
+
+        return &elts[i];
+    }
+
+    return NULL;
+}
+
+StrView getHeader(ngx_http_request_t* r, StrView name)
+{
+    auto hash = ngx_hash_key((u_char*)name.data(), name.size());
+    auto header = findHeader(&r->headers_in.headers, hash, name);
+
+    return header ? toStrView(header->value) : StrView{};
+}
+
+ngx_int_t updateRequestHeader(ngx_http_request_t* r, ngx_table_elt_t* header)
+{
+    auto cmcf = (ngx_http_core_main_conf_t*)
+        ngx_http_get_module_main_conf(r, ngx_http_core_module);
+
+    auto hh = (ngx_http_header_t*)ngx_hash_find(&cmcf->headers_in_hash,
+        header->hash, header->lowcase_key, header->key.len);
+
+    return hh ? hh->handler(r, header, hh->offset) : NGX_OK;
+}
+
+ngx_int_t setHeader(ngx_http_request_t* r, StrView name, StrView value)
+{
+    auto hash = ngx_hash_key((u_char*)name.data(), name.size());
+    auto header = findHeader(&r->headers_in.headers, hash, name);
+
+    if (header == NULL) {
+        if (value.empty()) {
+            return NGX_OK;
+        }
+
+        header = (ngx_table_elt_t*)ngx_list_push(&r->headers_in.headers);
+        if (header == NULL) {
+            return NGX_ERROR;
+        }
+
+        header->hash = hash;
+        header->key = toNgxStr(name);
+        header->lowcase_key = header->key.data;
+        header->next = NULL;
+    }
+
+    header->value = toNgxStr(value);
+    return updateRequestHeader(r, header);
+}
+
+TraceContext extract(ngx_http_request_t* r)
+{
+    auto parent = getHeader(r, "traceparent");
+    auto state = getHeader(r, "tracestate");
+
+    return TraceContext::parse(parent, state);
+}
+
+ngx_int_t inject(ngx_http_request_t* r, const TraceContext& tc)
+{
+    auto buf = (char*)ngx_pnalloc(r->pool, TraceContext::Size);
+    if (buf == NULL) {
+        return NGX_ERROR;
+    }
+
+    TraceContext::serialize(tc, buf);
+
+    auto rc = setHeader(r, "traceparent", {buf, TraceContext::Size});
+    if (rc != NGX_OK) {
+        return rc;
+    }
+
+    return setHeader(r, "tracestate", tc.state);
+}
+
 ngx_int_t onRequestStart(ngx_http_request_t* r)
 {
     // don't let internal redirects to override sampling decision
@@ -104,11 +254,33 @@ ngx_int_t onRequestStart(ngx_http_request_t* r)
         sampled = toStrView(trace) == "on";
     }
 
-    if (sampled) {
-        ngx_http_set_ctx(r, &gHttpModule, gHttpModule);
+    if (!lcf->traceContext && !sampled) {
+        return NGX_DECLINED;
     }
 
-    return NGX_DECLINED;
+    auto ctx = getOtelCtx(r);
+    if (ctx) {
+        return NGX_DECLINED;
+    }
+
+    ctx = createOtelCtx(r);
+    if (!ctx) {
+        return NGX_ERROR;
+    }
+
+    if (lcf->traceContext & Propagation::Extract) {
+        ctx->parent = extract(r);
+    }
+
+    ctx->current = TraceContext::generate(sampled, ctx->parent);
+
+    ngx_int_t rc = NGX_OK;
+
+    if (lcf->traceContext & Propagation::Inject) {
+        rc = inject(r, ctx->current);
+    }
+
+    return rc == NGX_OK ? NGX_DECLINED : rc;
 }
 
 StrView getServerName(ngx_http_request_t* r)
@@ -181,7 +353,8 @@ void addDefaultAttrs(BatchExporter::Span& span, ngx_http_request_t* r)
 
 ngx_int_t onRequestEnd(ngx_http_request_t* r)
 {
-    if (!ngx_http_get_module_ctx(r, gHttpModule)) {
+    auto ctx = getOtelCtx(r);
+    if (!ctx || !ctx->current.sampled) {
         return NGX_DECLINED;
     }
 
@@ -196,7 +369,7 @@ ngx_int_t onRequestEnd(ngx_http_request_t* r)
 
     try {
         BatchExporter::SpanInfo info{
-            toStrView(clcf->name), TraceContext::generate(true), {},
+            toStrView(clcf->name), ctx->current, ctx->parent.spanId,
             toNanoSec(r->start_sec, r->start_msec),
             toNanoSec(now->sec, now->msec)};
 
@@ -406,6 +579,7 @@ void* createLocationConf(ngx_conf_t* cf)
     }
 
     conf->trace = (ngx_http_complex_value_t*)NGX_CONF_UNSET_PTR;
+    conf->traceContext = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -416,6 +590,7 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
     auto conf = (LocationConf*)child;
 
     ngx_conf_merge_ptr_value(conf->trace, prev->trace, NULL);
+    ngx_conf_merge_uint_value(conf->traceContext, prev->traceContext, 0);
 
     return NGX_CONF_OK;
 }
