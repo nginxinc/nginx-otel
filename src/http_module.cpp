@@ -118,6 +118,11 @@ ngx_str_t toNgxStr(StrView str)
     return ngx_str_t{str.size(), (u_char*)str.data()};
 }
 
+LocationConf* getLocationConf(ngx_http_request_t* r)
+{
+    return (LocationConf*)ngx_http_get_module_loc_conf(r, gHttpModule);
+}
+
 OtelCtx* getOtelCtx(ngx_http_request_t* r)
 {
     return (OtelCtx*)ngx_http_get_module_ctx(r, gHttpModule);
@@ -235,6 +240,28 @@ ngx_int_t inject(ngx_http_request_t* r, const TraceContext& tc)
     return setHeader(r, "tracestate", tc.state);
 }
 
+OtelCtx* ensureOtelCtx(ngx_http_request_t* r)
+{
+    auto ctx = getOtelCtx(r);
+    if (ctx) {
+        return ctx;
+    }
+
+    ctx = createOtelCtx(r);
+    if (!ctx) {
+        return NULL;
+    }
+
+    auto lcf = getLocationConf(r);
+    if (lcf->traceContext & Propagation::Extract) {
+        ctx->parent = extract(r);
+    }
+
+    ctx->current = TraceContext::generate(false, ctx->parent);
+
+    return ctx;
+}
+
 ngx_int_t onRequestStart(ngx_http_request_t* r)
 {
     // don't let internal redirects to override sampling decision
@@ -244,35 +271,26 @@ ngx_int_t onRequestStart(ngx_http_request_t* r)
 
     bool sampled = false;
 
-    auto lcf = (LocationConf*)ngx_http_get_module_loc_conf(r, gHttpModule);
+    auto lcf = getLocationConf(r);
     if (lcf->trace != NULL) {
         ngx_str_t trace;
         if (ngx_http_complex_value(r, lcf->trace, &trace) != NGX_OK) {
             return NGX_ERROR;
         }
 
-        sampled = toStrView(trace) == "on";
+        sampled = toStrView(trace) == "on" || toStrView(trace) == "1";
     }
 
     if (!lcf->traceContext && !sampled) {
         return NGX_DECLINED;
     }
 
-    auto ctx = getOtelCtx(r);
-    if (ctx) {
-        return NGX_DECLINED;
-    }
-
-    ctx = createOtelCtx(r);
+    auto ctx = ensureOtelCtx(r);
     if (!ctx) {
         return NGX_ERROR;
     }
 
-    if (lcf->traceContext & Propagation::Extract) {
-        ctx->parent = extract(r);
-    }
-
-    ctx->current = TraceContext::generate(sampled, ctx->parent);
+    ctx->current.sampled = sampled;
 
     ngx_int_t rc = NGX_OK;
 
@@ -571,6 +589,85 @@ char* initMainConf(ngx_conf_t* cf, void* conf)
     return NGX_CONF_OK;
 }
 
+template <class Id>
+ngx_int_t hexIdVar(ngx_http_request_t* r, ngx_http_variable_value_t* v,
+    uintptr_t data)
+{
+    auto ctx = ensureOtelCtx(r);
+    if (!ctx) {
+        return NGX_ERROR;
+    }
+
+    auto id = (Id*)((char*)ctx + data);
+
+    if (id->IsValid()) {
+        auto size = id->Id().size() * 2;
+        auto buf = (char*)ngx_pnalloc(r->pool, size);
+        if (buf == NULL) {
+            return NGX_ERROR;
+        }
+
+        id->ToLowerBase16({buf, size});
+
+        v->len = size;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = (u_char*)buf;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+ngx_int_t parentSampledVar(ngx_http_request_t* r, ngx_http_variable_value_t* v,
+    uintptr_t data)
+{
+    auto ctx = ensureOtelCtx(r);
+    if (!ctx) {
+        return NGX_ERROR;
+    }
+
+    v->len = 1;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = (u_char*)(ctx->parent.sampled ? "1" : "0");
+
+    return NGX_OK;
+}
+
+ngx_int_t addVariables(ngx_conf_t* cf)
+{
+    using namespace opentelemetry::trace;
+
+    ngx_http_variable_t vars[] = {
+        { ngx_string("otel_trace_id"), NULL, hexIdVar<TraceId>,
+            offsetof(OtelCtx, current.traceId) },
+
+        { ngx_string("otel_span_id"), NULL, hexIdVar<SpanId>,
+            offsetof(OtelCtx, current.spanId) },
+
+        { ngx_string("otel_parent_id"), NULL, hexIdVar<SpanId>,
+            offsetof(OtelCtx, parent.spanId) },
+
+        { ngx_string("otel_parent_sampled"), NULL, parentSampledVar }
+    };
+
+    for (auto& v : vars) {
+        auto var = ngx_http_add_variable(cf, &v.name, 0);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+        var->get_handler = v.get_handler;
+        var->data = v.data;
+    }
+
+    return NGX_OK;
+}
+
 void* createLocationConf(ngx_conf_t* cf)
 {
     auto conf = (LocationConf*)ngx_pcalloc(cf->pool, sizeof(LocationConf));
@@ -596,7 +693,7 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
 }
 
 ngx_http_module_t gHttpModuleCtx = {
-    NULL,                               /* preconfiguration */
+    addVariables,                       /* preconfiguration */
     initModule,                         /* postconfiguration */
 
     createMainConf,                     /* create main configuration */

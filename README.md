@@ -51,8 +51,35 @@ Dumping all the requests could be useful even in non-distributed environment.
 http {
     server {
         location / {
-            otel_trace on;
+            otel_trace $otel_parent_sampled;
             otel_trace_context propagate;
+
+            proxy_pass http://backend;
+        }
+    }
+}
+```
+
+### Ratio-based Tracing
+
+```nginx
+http {
+    # trace 10% of requests
+    split_clients $otel_trace_id $ratio_sampler {
+        10%     on;
+        *       off;
+    }
+
+    # or we can trace 10% of user sessions
+    split_clients $cookie_sessionid $session_sampler {
+        10%     on;
+        *       off;
+    }
+
+    server {
+        location / {
+            otel_trace $ratio_sampler;
+            otel_trace_context inject;
 
             proxy_pass http://backend;
         }
@@ -110,6 +137,44 @@ Maximum number of spans to be sent in one batch per worker. Detault is 512.
 **`batch_count`** `4;`
 
 Maximum number of pending batches per worker, over the limit spans are dropped. Default is 4.
+
+### Variables
+
+`$otel_trace_id` - trace id.
+
+`$otel_span_id` - current span id.
+
+`$otel_parent_id` - parent span id.
+
+`$otel_parent_sampled` - `sampled` flag of parent span, `1`/`0`.
+
+### Default span [attributes](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md)
+
+`http.method`
+
+`http.target`
+
+`http.route`
+
+`http.scheme`
+
+`http.flavor`
+
+`http.user_agent`
+
+`http.request_content_length`
+
+`http.response_content_length`
+
+`http.status_code`
+
+`net.host.name`
+
+`net.host.port`
+
+`net.sock.peer.addr`
+
+`net.sock.peer.port`
 
 ## License
 
