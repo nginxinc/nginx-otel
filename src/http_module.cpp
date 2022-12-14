@@ -26,12 +26,21 @@ struct MainConf {
     ngx_str_t serviceName;
 };
 
+struct SpanAttr {
+    ngx_str_t name;
+    ngx_http_complex_value_t value;
+};
+
 struct LocationConf {
     ngx_http_complex_value_t* trace;
     ngx_uint_t traceContext;
+
+    ngx_http_complex_value_t* spanName;
+    ngx_array_t spanAttrs;
 };
 
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
 
@@ -73,6 +82,17 @@ ngx_command_t gCommands[] = {
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(LocationConf, traceContext),
       &Propagation::Types },
+
+    { ngx_string("otel_span_name"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(LocationConf, spanName) },
+
+    { ngx_string("otel_span_attr"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,
+      addSpanAttr,
+      NGX_HTTP_LOC_CONF_OFFSET },
 
       ngx_null_command
 };
@@ -369,15 +389,54 @@ void addDefaultAttrs(BatchExporter::Span& span, ngx_http_request_t* r)
     span.add("net.sock.peer.port", ngx_inet_get_port(r->connection->sockaddr));
 }
 
+StrView getSpanName(ngx_http_request_t* r)
+{
+    auto lcf = getLocationConf(r);
+
+    if (lcf->spanName) {
+        ngx_str_t result;
+        if (ngx_http_complex_value(r, lcf->spanName, &result) != NGX_OK) {
+            throw std::runtime_error("failed to compute complex value");
+        }
+
+        return toStrView(result);
+    } else {
+        auto clcf = (ngx_http_core_loc_conf_t*)
+            ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+        return toStrView(clcf->name);
+    }
+}
+
+void addCustomAttrs(BatchExporter::Span& span, ngx_http_request_t* r)
+{
+    auto lcf = getLocationConf(r);
+    auto attrs = (SpanAttr*)lcf->spanAttrs.elts;
+
+    for (ngx_uint_t i = 0; i < lcf->spanAttrs.nelts; i++) {
+        ngx_str_t value;
+        if (ngx_http_complex_value(r, &attrs[i].value, &value) != NGX_OK) {
+            throw std::runtime_error("failed to compute complex value");
+        }
+
+        StrView name = toStrView(attrs[i].name);
+        if (startsWith(name, "http.request.header.") ||
+            startsWith(name, "http.response.header."))
+        {
+            //TODO: remove this once headers are supported natively
+            span.addArray(name, toStrView(value));
+        } else {
+            span.add(name, toStrView(value));
+        }
+    }
+}
+
 ngx_int_t onRequestEnd(ngx_http_request_t* r)
 {
     auto ctx = getOtelCtx(r);
     if (!ctx || !ctx->current.sampled) {
         return NGX_DECLINED;
     }
-
-    auto clcf = (ngx_http_core_loc_conf_t*)ngx_http_get_module_loc_conf(
-        r, ngx_http_core_module);
 
     auto now = ngx_timeofday();
 
@@ -387,12 +446,13 @@ ngx_int_t onRequestEnd(ngx_http_request_t* r)
 
     try {
         BatchExporter::SpanInfo info{
-            toStrView(clcf->name), ctx->current, ctx->parent.spanId,
+            getSpanName(r), ctx->current, ctx->parent.spanId,
             toNanoSec(r->start_sec, r->start_msec),
             toNanoSec(now->sec, now->msec)};
 
         bool ok = gExporter->add(info, [r](BatchExporter::Span& span) {
             addDefaultAttrs(span, r);
+            addCustomAttrs(span, r);
         });
 
         if (!ok) {
@@ -589,6 +649,32 @@ char* initMainConf(ngx_conf_t* cf, void* conf)
     return NGX_CONF_OK;
 }
 
+char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto lcf = (LocationConf*)conf;
+
+    if (lcf->spanAttrs.elts == NULL && ngx_array_init(&lcf->spanAttrs,
+            cf->pool, 4, sizeof(SpanAttr)) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    auto attr = (SpanAttr*)ngx_array_push(&lcf->spanAttrs);
+    if (attr == NULL) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    auto args = (ngx_str_t*)cf->args->elts;
+
+    attr->name = args[1];
+
+    ngx_http_compile_complex_value_t ccv = { cf, &args[2], &attr->value };
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
 template <class Id>
 ngx_int_t hexIdVar(ngx_http_request_t* r, ngx_http_variable_value_t* v,
     uintptr_t data)
@@ -677,6 +763,7 @@ void* createLocationConf(ngx_conf_t* cf)
 
     conf->trace = (ngx_http_complex_value_t*)NGX_CONF_UNSET_PTR;
     conf->traceContext = NGX_CONF_UNSET_UINT;
+    conf->spanName = (ngx_http_complex_value_t*)NGX_CONF_UNSET_PTR;
 
     return conf;
 }
@@ -688,6 +775,11 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
 
     ngx_conf_merge_ptr_value(conf->trace, prev->trace, NULL);
     ngx_conf_merge_uint_value(conf->traceContext, prev->traceContext, 0);
+    ngx_conf_merge_ptr_value(conf->spanName, prev->spanName, NULL);
+
+    if (conf->spanAttrs.elts == NULL) {
+        conf->spanAttrs = prev->spanAttrs;
+    }
 
     return NGX_CONF_OK;
 }
