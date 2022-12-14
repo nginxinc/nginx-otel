@@ -70,6 +70,16 @@ public:
             add(key)->mutable_value()->set_int_value(value);
         }
 
+        void addArray(StrView key, StrView value)
+        {
+            auto elems = add(key)->mutable_value()->mutable_array_value()->
+                mutable_values();
+
+            auto elem = elems->size() > 0 ? elems->Mutable(0) : elems->Add();
+
+            elem->mutable_string_value()->assign(value.data(), value.size());
+        }
+
         void setError()
         {
             span->mutable_status()->set_code(

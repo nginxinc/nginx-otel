@@ -101,6 +101,14 @@ The argument is a “complex value”, which should result in `on`/`off` or `1`/
 
 Defines how to propagate traceparent/tracestate headers. `extract` uses existing trace context from request. `inject` adds new context to request, rewriting existing headers if any. `propagate` updates existing context (i.e. combines `extract` and `inject`). `ignore` skips context headers processing. Default is `ignore`.
 
+**`otel_span_name`** `name;`
+
+Default is request’s location name.
+
+**`otel_span_attr`** `name “$var”;`
+
+If name starts with `http.(request|response).header.` the type of added attribute will be `string[]` to match semantic conventions (i.e. header value will be represented as a single element array). Otherwise, the attribute type will be `string`.
+
 #### Available in `http` context
 
 **`otel_exporter`**`;`
