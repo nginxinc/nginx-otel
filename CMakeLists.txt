@@ -83,13 +83,17 @@ set(PROTO_SOURCES
 
 # generate protobuf code for lite runtime
 add_custom_command(
-    OUTPUT ${PROTO_SOURCES} #${PROTO_HEADERS}
+    OUTPUT ${PROTO_SOURCES}
     COMMAND protobuf::protoc
-    ARGS --proto_path ${PROTO_DIR}
-         --cpp_out lite:${PROTO_OUT_DIR}
-         --grpc_out ${PROTO_OUT_DIR}
-         --plugin protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
-         ${PROTOS}
+        --proto_path ${PROTO_DIR}
+        --cpp_out lite:${PROTO_OUT_DIR}
+        --grpc_out ${PROTO_OUT_DIR}
+        --plugin protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
+        ${PROTOS}
+    # remove inconsequential UTF8 check during serialization to aid performance
+    COMMAND sed -i.bak
+        -e [[/    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(/,/);/d]]
+        ${PROTO_SOURCES}
     DEPENDS ${PROTOS} protobuf::protoc gRPC::grpc_cpp_plugin
     VERBATIM)
 
