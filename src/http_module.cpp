@@ -146,21 +146,41 @@ LocationConf* getLocationConf(ngx_http_request_t* r)
     return (LocationConf*)ngx_http_get_module_loc_conf(r, gHttpModule);
 }
 
+void cleanupOtelCtx(void* data)
+{
+}
+
 OtelCtx* getOtelCtx(ngx_http_request_t* r)
 {
-    return (OtelCtx*)ngx_http_get_module_ctx(r, gHttpModule);
+    auto ctx = (OtelCtx*)ngx_http_get_module_ctx(r, gHttpModule);
+
+    // restore module context if it was reset by e.g. internal redirect
+    if (ctx == NULL && (r->internal || r->filter_finalize)) {
+
+        for (auto cln = r->pool->cleanup; cln; cln = cln->next) {
+            if (cln->handler == cleanupOtelCtx) {
+                ctx = (OtelCtx*)cln->data;
+                ngx_http_set_ctx(r, ctx, gHttpModule);
+                break;
+            }
+        }
+    }
+
+    return ctx;
 }
 
 OtelCtx* createOtelCtx(ngx_http_request_t* r)
 {
     static_assert(std::is_trivially_destructible<OtelCtx>::value, "");
 
-    auto storage = ngx_pcalloc(r->pool, sizeof(OtelCtx));
+    auto storage = ngx_pool_cleanup_add(r->pool, sizeof(OtelCtx));
     if (storage == NULL) {
         return NULL;
     }
 
-    auto ctx = new (storage) OtelCtx{};
+    storage->handler = cleanupOtelCtx;
+
+    auto ctx = new (storage->data) OtelCtx{};
     ngx_http_set_ctx(r, ctx, gHttpModule);
 
     return ctx;
