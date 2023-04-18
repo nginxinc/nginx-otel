@@ -552,7 +552,8 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
         cycle, gHttpModule);
 
-    if (mcf == NULL) {
+    // no 'http' or 'otel_exporter' blocks
+    if (mcf == NULL || mcf->endpoint.len == 0) {
         return NGX_OK;
     }
 
@@ -688,11 +689,6 @@ char* initMainConf(ngx_conf_t* cf, void* conf)
 {
     auto mcf = (MainConf*)conf;
 
-    if (mcf->endpoint.len == 0) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "\"otel_exporter\" block is missing");
-        return (char*)NGX_CONF_ERROR;
-    }
 
     ngx_conf_init_msec_value(mcf->interval, 5000);
     ngx_conf_init_size_value(mcf->batchSize, 512);
@@ -835,6 +831,14 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
 
     if (conf->spanAttrs.elts == NULL) {
         conf->spanAttrs = prev->spanAttrs;
+    }
+
+    auto mcf = (MainConf*)ngx_http_conf_get_module_main_conf(cf, gHttpModule);
+
+    if (mcf->endpoint.len == 0 && conf->trace) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"otel_exporter\" block is missing");
+        return (char*)NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
