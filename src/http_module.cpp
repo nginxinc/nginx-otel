@@ -552,6 +552,10 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
         cycle, gHttpModule);
 
+    if (mcf == NULL) {
+        return NGX_OK;
+    }
+
     try {
         gExporter.reset(new BatchExporter(
             toStrView(mcf->endpoint),
@@ -591,6 +595,10 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
 
 void exitWorkerProcess(ngx_cycle_t* cycle)
 {
+    if (!gExporter) {
+        return;
+    }
+
     try {
         gExporter->flush();
     } catch (const std::exception& e) {
