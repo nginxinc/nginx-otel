@@ -2,7 +2,7 @@
 
 ## Latest Versions
 
-We advise users to run or update to the most recent release of the {{REPOSITORY_NAME}}. Older versions of the {{REPOSITORY_NAME}} may not have all enhancements and/or bug fixes applied to them.
+We advise users to run or update to the most recent release of the nginx_otel. Older versions of the nginx_otel may not have all enhancements and/or bug fixes applied to them.
 
 ## Reporting a Vulnerability
 

@@ -30,4 +30,4 @@ Want to get in touch with the NGINX development team directly? Try using the rel
 
 ## Contributing
 
-Please see the [contributing guide](https://github.com/{{REPOSITORY_OWNER}}/{{REPOSITORY_URL}}/blob/main/CONTRIBUTING.md) for guidelines on how to best contribute to this project.
+Please see the [contributing guide](https://github.com/nginxinc/nginx-otel/blob/main/CONTRIBUTING.md) for guidelines on how to best contribute to this project.

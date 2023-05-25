@@ -6,7 +6,7 @@ Describe the use case and detail of the change. If this PR addresses an issue on
 
 Before creating a PR, run through this checklist and mark each as complete.
 
-- [ ] I have read the [`CONTRIBUTING`](https://github.com/{{REPOSITORY_OWNER}}/{{REPOSITORY_URL}}/blob/main/CONTRIBUTING.md) document
+- [ ] I have read the [`CONTRIBUTING`](https://github.com/nginxinc/nginx-otel/blob/main/CONTRIBUTING.md) document
 - [ ] If applicable, I have added tests that prove my fix is effective or that my feature works
 - [ ] If applicable, I have checked that any relevant tests pass after adding my changes
-- [ ] I have updated any relevant documentation ([`README.md`](https://github.com/{{REPOSITORY_OWNER}}/{{REPOSITORY_URL}}/blob/main/README.md) and [`CHANGELOG.md`](https://github.com/{{REPOSITORY_OWNER}}/{{REPOSITORY_URL}}/blob/main/CHANGELOG.md))
+- [ ] I have updated any relevant documentation ([`README.md`](https://github.com/nginxinc/nginx-otel/blob/main/README.md) and [`CHANGELOG.md`](https://github.com/nginxinc/nginx-otel/blob/main/CHANGELOG.md))
