@@ -1,0 +1,18 @@
+name: nginx-otel-build
+run-name: ${{ github.actor }} is triggering pipeline
+on: [push]
+jobs:
+  build-and-test-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+            sudo apt-get update && sudo apt install -y mercurial cmake \
+            libc-ares-dev libre2-dev libssl-dev zlib1g-dev curl
+      - run: |
+             hg clone http://hg.nginx.org/nginx/ && cd nginx && \
+             auto/configure --with-compat --with-debug --with-http_ssl_module \
+             --with-http_v2_module --with-http_v3_module && make -j 4
+      - run: |
+            mkdir build && cd build && cmake -DNGX_OTEL_NGINX_BUILD_DIR=\
+            ${PWD}/../nginx/objs .. && make -j 4
