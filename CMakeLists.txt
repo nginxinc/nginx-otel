@@ -117,10 +117,13 @@ target_include_directories(ngx_otel_module PRIVATE
     ${NGX_OTEL_NGINX_BUILD_DIR}
     ${NGX_OTEL_NGINX_DIR}/src/core
     ${NGX_OTEL_NGINX_DIR}/src/event
+    ${NGX_OTEL_NGINX_DIR}/src/event/modules
+    ${NGX_OTEL_NGINX_DIR}/src/event/quic
     ${NGX_OTEL_NGINX_DIR}/src/os/unix
     ${NGX_OTEL_NGINX_DIR}/src/http
     ${NGX_OTEL_NGINX_DIR}/src/http/modules
     ${NGX_OTEL_NGINX_DIR}/src/http/v2
+    ${NGX_OTEL_NGINX_DIR}/src/http/v3
     ${PROTO_OUT_DIR})
 
 target_link_libraries(ngx_otel_module
