@@ -443,18 +443,14 @@ sub get_ssl_socket {
 sub get_attr {
 	my($attr, $type, $obj) = @_;
 
-	for (keys %{$obj}) {
-		if ($_ =~ /^attribute\d+/) {
-			if ($$obj{$_}{key} eq '"' . $attr . '"') {
-				if ($type eq 'string_value') {
-					$$obj{$_}{value}{$type} =~ s/(^\")|(\"$)//g;
-				}
-				return $$obj{$_}{value}{$type}
-			}
-		}
-	}
+	my ($res) = grep {
+			$_ =~ /^attribute\d+/ && $$obj{$_}{key} eq '"' . $attr . '"'
+		} keys %{$obj};
 
-	return undef;
+	$$obj{$res}{value}{$type} =~ s/(^\")|(\"$)//g
+		if $res && $type eq 'string_value';
+
+	return $$obj{$res}{value}{$type};
 }
 
 sub decode_protobuf {

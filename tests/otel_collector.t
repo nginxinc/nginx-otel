@@ -394,11 +394,9 @@ sub get_ssl_socket {
 sub get_attr {
 	my($attr, $type, $obj) = @_;
 
-	for (@{$$obj{"attributes"}}) {
-		return $$_{"value"}{$type} if ($$_{"key"} eq $attr);
-	}
+	my ($res) = grep { $$_{"key"} eq $attr } @{$$obj{"attributes"}};
 
-	return undef;
+	return $res->{"value"}{$type};
 }
 
 ###############################################################################
