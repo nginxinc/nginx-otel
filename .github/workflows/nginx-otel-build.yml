@@ -7,10 +7,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Install dependecies
+      - name: Install system dependecies
         run: |
             sudo apt-get update && sudo apt install -y mercurial cmake \
-            libc-ares-dev libre2-dev libssl-dev zlib1g-dev curl
+            libc-ares-dev libre2-dev libssl-dev zlib1g-dev
       - name: Checkout and build nginx
         run: |
              hg clone http://hg.nginx.org/nginx/ && cd nginx && \
@@ -39,17 +39,22 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: nginx-otel-module-stuff
-      - run: |
-            sudo apt-get update && sudo apt install -y mercurial cmake \
-            libc-ares-dev libre2-dev libssl-dev zlib1g-dev curl
-      - run: sudo cpan IO::Socket::SSL
-      - run: |
+      - name: Install system dependecies
+        run: sudo apt-get update && sudo apt install -y mercurial curl
+      - name: Install perl modules
+        run: sudo cpan IO::Socket::SSL
+      - name: Download otelcol
+        run: |
             curl -LO https://github.com/\
             open-telemetry/opentelemetry-collector-releases/releases/download/\
             v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz && \
             tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
-      - run: hg clone http://hg.nginx.org/nginx-tests/
-      - run: |
+      - name: Checkout nginx-test
+        run: hg clone http://hg.nginx.org/nginx-tests/
+      - name: List files before tests
+        run: ls -lR .
+      - name: Run tests
+        run: |
             cd tests && PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \
             TEST_NGINX_VERBOSE=1 TEST_NGINX_BINARY=../nginx/objs/nginx \
             TEST_NGINX_GLOBALS="load_module \
