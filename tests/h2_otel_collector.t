@@ -373,6 +373,7 @@ is($tp_headers_propagate->{'x-otel-tracestate'},
 sub http2_get {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new();
 
 	my $sid = $s->new_stream({ path => $path });
@@ -390,6 +391,7 @@ sub http2_get {
 sub http2_get_traceparent {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new();
 
 	my $sid = $s->new_stream({ headers => [
@@ -417,6 +419,7 @@ sub http2_get_traceparent {
 sub http2_get_ssl {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new(undef,
 		socket => get_ssl_socket(8082, ['h2']));
 
@@ -440,7 +443,8 @@ sub get_ssl_socket {
 		SSL => 1,
 		SSL_alpn_protocols => $alpn,
 		SSL_error_trap => sub { die $_[1] }
-	);}
+	);
+}
 
 sub get_attr {
 	my($attr, $type, $obj) = @_;

@@ -1,4 +1,4 @@
-name: nginx-otel-module
+name: nginx-otel-module-check
 run-name: ${{ github.actor }} is triggering pipeline
 on: [push]
 jobs:
@@ -9,8 +9,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Install system dependecies
         run: |
-            sudo apt-get update && sudo apt install -y mercurial cmake \
-            libc-ares-dev libre2-dev libssl-dev zlib1g-dev
+            sudo apt-get update && sudo apt install -y cmake \
+            libc-ares-dev libre2-dev
       - name: Checkout and build nginx
         run: |
              hg clone http://hg.nginx.org/nginx/ && cd nginx && \
@@ -39,8 +39,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: nginx-otel-module-stuff
-      - name: Install system dependecies
-        run: sudo apt-get update && sudo apt install -y mercurial curl
+      - name: Fix rights
+        run: |
+            chmod +x nginx/objs/nginx
+            chmod +x build/_deps/grpc-build/third_party/protobuf/protoc
       - name: Install perl modules
         run: sudo cpan IO::Socket::SSL
       - name: Download otelcol
@@ -51,8 +53,6 @@ jobs:
             tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
       - name: Checkout nginx-test
         run: hg clone http://hg.nginx.org/nginx-tests/
-      - name: List files before tests
-        run: ls -lR .
       - name: Run tests
         run: |
             cd tests && PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \

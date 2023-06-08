@@ -367,6 +367,7 @@ is($tp_headers_propagate->{'x-otel-tracestate'},
 sub http2_get {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new();
 
 	my $sid = $s->new_stream({ path => $path });
@@ -384,6 +385,7 @@ sub http2_get {
 sub http2_get_traceparent {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new();
 
 	my $sid = $s->new_stream({ headers => [
@@ -411,6 +413,7 @@ sub http2_get_traceparent {
 sub http2_get_ssl {
 	my ($path) = @_;
 	my ($frames, $frame);
+
 	my $s = Test::Nginx::HTTP2->new(undef,
 		socket => get_ssl_socket(8082, ['h2']));
 
@@ -434,7 +437,8 @@ sub get_ssl_socket {
 		SSL => 1,
 		SSL_alpn_protocols => $alpn,
 		SSL_error_trap => sub { die $_[1] }
-	);}
+	);
+}
 
 sub get_attr {
 	my($attr, $type, $obj) = @_;
@@ -457,6 +461,7 @@ sub decode_protobuf {
 	my ($protobuf) = @_;
 
 	$protobuf = encode_base64($protobuf);
+
 	open my $cmd => "echo '$protobuf' | base64 -d | " .
 		'$PWD/../build/_deps/grpc-build/third_party/protobuf/protoc '.
 		'--decode opentelemetry.proto.trace.v1.ResourceSpans -I ' .
@@ -482,6 +487,7 @@ sub decode_bytes {
 		} elsif ($acc ne '') {
 			$acc .= $c;
 		}
+
 		if ($acc =~ /\\(\d{3})/) {
 			$res .= chr(oct($1));
 			$acc = '';
@@ -504,31 +510,21 @@ sub decode_bytes {
 
 sub to_hash {
 	my ($textdata) = @_;
-
 	my $out;
+
 	%{$out} = ();
-
 	my @stack = ($out);
-	my @lines;
-
-	for (split /\n/, $textdata) {
-		chomp;
-		$_ =~ s/^\s+//;
-		push @lines, $_;
-	}
-
 	my ($attr_count, $span_count) = (0, 0);
-
-	for my $line (@lines) {
+	for my $line (split /\n/, $textdata) {
+		chomp $line;
+		$line =~ s/^\s+//;
 		if ($line =~ /\:/) {
 			my ($k, $v) = split /\: /, $line;
 			$v = decode_bytes($v) if ($k =~ /trace_id|span_id|parent_span_id/);
 			$stack[scalar(@stack)-1]{$k} = $v;
 		} elsif ($line =~ /\{/) {
 			$line =~ s/\s\{//;
-			if ($line eq 'attributes') {
-				$line = 'attribute' . $attr_count++;
-			}
+			$line = 'attribute' . $attr_count++ if ($line eq 'attributes');
 			if ($line eq 'spans') {
 				$line = 'span' . $span_count++;
 				$attr_count = 0;
@@ -554,8 +550,7 @@ sub grpc {
 		LocalPort => $p,
 		Listen => 5,
 		Reuse => 1
-	)
-		or die "Can't create listening socket: $!\n";
+	) or die "Can't create listening socket: $!\n";
 
 	$f->{http_start} = sub {
 		if (IO::Select->new($server)->can_read(5)) {

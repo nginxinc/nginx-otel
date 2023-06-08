@@ -364,6 +364,7 @@ like($tp_resp_propagate,
 
 sub http_get_traceparent {
 	my ($path) = @_;
+
 	return http(<<EOF);
 GET $path HTTP/1.0
 Host: localhost
@@ -376,7 +377,9 @@ EOF
 
 sub http_get_ssl {
 	my ($path) = @_;
+
 	my $s = get_ssl_socket(8081) or return;
+
 	return http_get($path, socket => $s);
 }
 
@@ -385,7 +388,8 @@ sub get_ssl_socket {
 
 	return http(
 		'', PeerAddr => '127.0.0.1:' . port($port), start => 1, SSL => 1
-	);}
+	);
+}
 
 sub get_attr {
 	my($attr, $type, $obj) = @_;
