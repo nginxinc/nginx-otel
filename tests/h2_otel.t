@@ -159,7 +159,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no OTEL module')->plan(64);
+$t->try_run('no OTEL module')->plan(66);
 
 ###############################################################################
 
@@ -363,6 +363,19 @@ is($tp_headers_propagate->{'x-otel-tracestate'},
 	'congo=ucfJifl5GOE,rojo=00f067aa0ba902b7',
 	'tracestate - trace context propagate (trace headers)');
 
+SKIP: {
+skip "relies on error log contents", 2 unless $ENV{TEST_NGINX_UNSAFE};
+
+$t->stop();
+my $log = $t->read_file("error.log");
+
+like($log, qr/OTel\/grpc: Error parsing metadata: error=invalid value/,
+	'log: error parsing metadata');
+
+like($log, qr/OTel export failure: No status received/, 'log: export failure');
+
+}
+
 ###############################################################################
 
 sub http2_get {
@@ -420,10 +433,14 @@ sub get_attr {
 			$_ =~ /^attribute\d+/ && $$obj{$_}{key} eq '"' . $attr . '"'
 		} keys %{$obj};
 
-	$$obj{$res}{value}{$type} =~ s/(^\")|(\"$)//g
-		if $res && $type eq 'string_value';
+	if (defined $res) {
+		$$obj{$res}{value}{$type} =~ s/(^\")|(\"$)//g
+			if $type eq 'string_value';
 
-	return $$obj{$res}{value}{$type};
+		return $$obj{$res}{value}{$type};
+	}
+
+	return undef;
 }
 
 sub decode_protobuf {
@@ -537,6 +554,8 @@ sub grpc {
 
 reused:
 		my $frames = $c->read(all => [{ fin => 1 }]);
+
+		$client->close();
 
 		return $frames;
 	};

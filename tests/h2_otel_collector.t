@@ -167,7 +167,7 @@ open STDERR, ">&", \*OLDERR;
 $t->waitforsocket('127.0.0.1:' . port(4317)) or
 	die 'No otel collector open socket';
 
-$t->try_run('no OTEL module')->plan(65);
+$t->try_run('no OTEL module')->plan(67);
 
 ###############################################################################
 
@@ -369,6 +369,15 @@ is($tp_headers_propagate->{'x-otel-tracestate'},
 	'congo=ucfJifl5GOE,rojo=00f067aa0ba902b7',
 	'tracestate - trace context propagate (trace headers)');
 
+$t->stop();
+my $log = $t->read_file("error.log");
+
+unlike($log, qr/OTel\/grpc: Error parsing metadata: error=invalid value/,
+	'log: error parsing metadata');
+
+unlike($log, qr/OTel export failure: No status received/,
+	'log: export failure');
+
 ###############################################################################
 
 sub http2_get {
@@ -424,7 +433,7 @@ sub get_attr {
 
 	my ($res) = grep { $$_{"key"} eq $attr } @{$$obj{"attributes"}};
 
-	return $res->{"value"}{$type};
+	return defined $res ? $res->{"value"}{$type} : undef;
 }
 
 ###############################################################################
