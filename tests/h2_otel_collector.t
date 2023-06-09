@@ -180,17 +180,18 @@ my ($t_headers_ignore, $tp_headers_ignore, $t_headers_extract,
 	$tp_headers_extract, $t_headers_inject, $tp_headers_inject,
 	$t_headers_propagate, $tp_headers_propagate);
 
-my ($tp_headers, $tp_resp) = http2_get_traceparent('/trace-on');
-my ($t_headers, $t_resp) = http2_get_ssl('/trace-on');
+my ($tp_headers, $tp_resp) = http2_get('/trace-on', trace_headers => 1);
+my ($t_headers, $t_resp) = http2_get('/trace-on', ssl => 1);
 
 ($t_headers_ignore, $_) = http2_get('/context-ignore');
-($tp_headers_ignore, $_) = http2_get_traceparent('/context-ignore');
+($tp_headers_ignore, $_) = http2_get('/context-ignore', trace_headers => 1);
 ($t_headers_extract, $_) = http2_get('/context-extract');
-($tp_headers_extract, $_) = http2_get_traceparent('/context-extract');
+($tp_headers_extract, $_) = http2_get('/context-extract', trace_headers => 1);
 ($t_headers_inject, $_) = http2_get('/context-inject');
-($tp_headers_inject, $_) = http2_get_traceparent('/context-inject');
+($tp_headers_inject, $_) = http2_get('/context-inject', trace_headers => 1);
 ($t_headers_propagate, $_) = http2_get('/context-propagate');
-($tp_headers_propagate, $_) = http2_get_traceparent('/context-propagate');
+($tp_headers_propagate, $_) =
+	http2_get('/context-propagate', trace_headers => 1);
 
 #batch1 (5 reqeusts)
 http2_get('/trace-on') for (1..5);
@@ -371,59 +372,31 @@ is($tp_headers_propagate->{'x-otel-tracestate'},
 ###############################################################################
 
 sub http2_get {
-	my ($path) = @_;
+	my ($path, %extra) = @_;
 	my ($frames, $frame);
 
-	my $s = Test::Nginx::HTTP2->new();
+	my $s = $extra{ssl}
+		? Test::Nginx::HTTP2->new(
+			undef, socket => get_ssl_socket(8082, ['h2']))
+		: Test::Nginx::HTTP2->new();
 
-	my $sid = $s->new_stream({ path => $path });
-	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-	($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-	my $headers = $frame->{headers};
-
-	($frame) = grep { $_->{type} eq "DATA" } @$frames;
-	my $data = $frame->{data};
-
-	return $headers, $data;
-}
-
-sub http2_get_traceparent {
-	my ($path) = @_;
-	my ($frames, $frame);
-
-	my $s = Test::Nginx::HTTP2->new();
-
-	my $sid = $s->new_stream({ headers => [
-		{ name => ':method', value => 'GET' },
-		{ name => ':scheme', value => 'http' },
-		{ name => ':path', value => $path },
-		{ name => ':authority', value => 'localhost' },
-		{ name => 'user-agent', value => 'nginx-tests', mode => 2 },
-		{ name => 'traceparent',
-			value => '00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01',
-			mode => 2 },
-		{ name => 'tracestate',
-			value => 'congo=ucfJifl5GOE,rojo=00f067aa0ba902b7', mode => 2 }]});
-	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
-
-	($frame) = grep { $_->{type} eq "HEADERS" } @$frames;
-	my $headers = $frame->{headers};
-
-	($frame) = grep { $_->{type} eq "DATA" } @$frames;
-	my $data = $frame->{data};
-
-	return $headers, $data;
-}
-
-sub http2_get_ssl {
-	my ($path) = @_;
-	my ($frames, $frame);
-
-	my $s = Test::Nginx::HTTP2->new(undef,
-		socket => get_ssl_socket(8082, ['h2']));
-
-	my $sid = $s->new_stream({ path => $path });
+	my $sid = $extra{trace_headers}
+		? $s->new_stream({ headers => [
+			{ name => ':method', value => 'GET' },
+			{ name => ':scheme', value => 'http' },
+			{ name => ':path', value => $path },
+			{ name => ':authority', value => 'localhost' },
+			{ name => 'user-agent', value => 'nginx-tests', mode => 2 },
+			{ name => 'traceparent',
+				value => '00-0af7651916cd43dd8448eb211c80319c-' .
+					'b9c7c989f97918e1-01',
+				mode => 2
+			},
+			{ name => 'tracestate',
+				value => 'congo=ucfJifl5GOE,rojo=00f067aa0ba902b7',
+				mode => 2
+			}]})
+		: $s->new_stream({ path => $path });
 	$frames = $s->read(all => [{ sid => $sid, fin => 1 }]);
 
 	($frame) = grep { $_->{type} eq "HEADERS" } @$frames;

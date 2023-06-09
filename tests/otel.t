@@ -165,20 +165,20 @@ my $p = port(4317);
 my $f = grpc();
 
 #do requests
-my $t_off_resp = http_get('/trace-off');
+my $t_off_resp = http1_get('/trace-off');
 
 #batch0 (10 requests)
-my $tp_resp = http_get_traceparent('/trace-on');
-my $t_resp = http_get_ssl('/trace-on');
+my $tp_resp = http1_get('/trace-on', trace_headers => 1);
+my $t_resp = http1_get('/trace-on', ssl => 1);
 
-my $t_resp_ignore = http_get('/context-ignore');
-my $tp_resp_ignore = http_get_traceparent('/context-ignore');
-my $t_resp_extract = http_get('/context-extract');
-my $tp_resp_extract = http_get_traceparent('/context-extract');
-my $t_resp_inject = http_get('/context-inject');
-my $tp_resp_inject = http_get_traceparent('/context-inject');
-my $t_resp_propagate = http_get('/context-propagate');
-my $tp_resp_propagate = http_get_traceparent('/context-propagate');
+my $t_resp_ignore = http1_get('/context-ignore');
+my $tp_resp_ignore = http1_get('/context-ignore', trace_headers => 1);
+my $t_resp_extract = http1_get('/context-extract');
+my $tp_resp_extract = http1_get('/context-extract', trace_headers => 1);
+my $t_resp_inject = http1_get('/context-inject');
+my $tp_resp_inject = http1_get('/context-inject', trace_headers => 1);
+my $t_resp_propagate = http1_get('/context-propagate');
+my $tp_resp_propagate = http1_get('/context-propagate', trace_headers => 1);
 
 my $frames = $f->{http_start}();
 my ($frame) = grep { $_->{type} eq "DATA" } @$frames;
@@ -187,7 +187,7 @@ my $batch0 = to_hash(decode_protobuf(substr($frame->{data}, 8)));
 my $spans = $$batch0{scope_spans};
 
 #batch1 (5 reqeusts)
-http_get('/trace-on') for (1..5);
+http1_get('/trace-on') for (1..5);
 
 $frames = $f->{http_start}();
 ($frame) = grep { $_->{type} eq "DATA" } @$frames;
@@ -246,7 +246,7 @@ is(get_attr("http.scheme", "string_value", $$spans{span1}), 'https',
 	'http.scheme metric - trace on (https)');
 is(get_attr("http.flavor", "string_value", $$spans{span1}), '1.0',
 	'http.flavor metric - trace on (https)');
-isnt(get_attr("http.user_agent", "string_value", $$spans{span1}),
+is(get_attr("http.user_agent", "string_value", $$spans{span1}),
 	'nginx-tests', 'http.user_agent metric - trace on (https)');
 is(get_attr("http.request_content_length", "int_value", $$spans{span1}), 0,
 	'http.request_content_length metric - trace on (https)');
@@ -358,25 +358,23 @@ like($tp_resp_propagate,
 
 ###############################################################################
 
-sub http_get_traceparent {
-	my ($path) = @_;
+sub http1_get {
+	my ($path, %extra) = @_;
 
-	return http(<<EOF);
+	my $s = $extra{ssl} ? get_ssl_socket(8081) : undef;
+
+	my $r = <<EOF;
 GET $path HTTP/1.0
 Host: localhost
 User-agent: nginx-tests
+EOF
+
+	$r .= <<EOF if $extra{trace_headers};
 Traceparent: 00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01
 Tracestate: congo=ucfJifl5GOE,rojo=00f067aa0ba902b7
-
 EOF
-}
 
-sub http_get_ssl {
-	my ($path) = @_;
-
-	my $s = get_ssl_socket(8081) or return;
-
-	return http_get($path, socket => $s);
+	return http($r . "\n", socket => $s);
 }
 
 sub get_ssl_socket {
