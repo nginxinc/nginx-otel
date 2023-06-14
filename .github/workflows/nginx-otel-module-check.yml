@@ -1,0 +1,31 @@
+name: nginx-otel-module-check
+run-name: ${{ github.actor }} is triggering pipeline
+on: [push]
+jobs:
+  build-module:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libc-ares-dev libre2-dev
+      - name: Checkout nginx
+        run: hg clone http://hg.nginx.org/nginx/
+      - name: Configure nginx
+        working-directory: nginx
+        run: auto/configure --with-compat
+      - name: Create build directory
+        run: mkdir build
+      - name: Build module
+        working-directory: build
+        run: |
+          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs ..
+          make -j 4
+          strip ngx_otel_module.so
+      - name: Archive module
+        uses: actions/upload-artifact@v3
+        with:
+          name: nginx-otel-module
+          path: build/ngx_otel_module.so
