@@ -332,7 +332,8 @@ like($tp_resp_extract,
 	'tracestate - trace context extract (trace headers)');
 
 #trace context: inject
-like($t_resp_inject, qr/X-Otel-Traceparent/,
+like($t_resp_inject,
+	qr/X-Otel-Traceparent: 00-$$spans[6]{traceId}-$$spans[6]{spanId}-01/,
 	'traceparent - trace context inject (no trace headers)');
 unlike($t_resp_inject, qr/X-Otel-Tracestate/,
 	'no tracestate - trace context inject (no trace headers)');

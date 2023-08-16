@@ -339,7 +339,8 @@ is($tp_headers_extract->{'x-otel-tracestate'},
 	'tracestate - trace context extract (trace headers)');
 
 #trace context: inject
-isnt($t_headers_inject->{'x-otel-traceparent'}, undef,
+is($t_headers_inject->{'x-otel-traceparent'},
+	"00-$$spans{span6}{trace_id}-$$spans{span6}{span_id}-01",
 	'traceparent - trace context inject (no trace headers)');
 is($t_headers_inject->{'x-otel-tracestate'}, undef,
 	'no tracestate - trace context inject (no trace headers)');
