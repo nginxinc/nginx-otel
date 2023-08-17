@@ -29,3 +29,54 @@ jobs:
         with:
           name: nginx-otel-module
           path: build/ngx_otel_module.so
+      - name: Archive protoc and opentelemetry-proto
+        uses: actions/upload-artifact@v3
+        with:
+          name: protoc-opentelemetry-proto
+          path: |
+            build/_deps/grpc-build/third_party/protobuf/protoc
+            build/_deps/otelcpp-src/third_party/opentelemetry-proto
+  test-module:
+    needs: build-module
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Download module
+        uses: actions/download-artifact@v3
+        with:
+          name: nginx-otel-module
+          path: build
+      - name: Download protoc and opentelemetry-proto
+        uses: actions/download-artifact@v3
+        with:
+          name: protoc-opentelemetry-proto
+          path: build/_deps
+      - name: List files
+        run: ls -laR .
+      - name: Fix protoc file permissions
+        run: chmod +x build/_deps/grpc-build/third_party/protobuf/protoc
+      - name: Install perl modules
+        run: sudo cpan IO::Socket::SSL Crypt::Misc
+      - name: Download otelcol
+        run: |
+          curl -LO https://github.com/\
+          open-telemetry/opentelemetry-collector-releases/releases/download/\
+          v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz
+          tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
+      - name: Checkout nginx and nginx-test
+        run: |
+          hg clone http://hg.nginx.org/nginx/
+          hg clone http://hg.nginx.org/nginx-tests/
+      - name: Build nginx
+        working-directory: nginx
+        run: |
+          auto/configure --with-compat --with-debug --with-http_ssl_module \
+          --with-http_v2_module --with-http_v3_module
+          make -j 4
+      - name: Run tests
+        working-directory: tests
+        run: |
+          PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \
+          TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
+          ${PWD}/../build/ngx_otel_module.so;" prove -v .
