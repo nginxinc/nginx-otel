@@ -26,6 +26,8 @@ To report a bug, open an issue on GitHub with the label `bug` using the availabl
 
 ### Suggest a Feature or Enhancement
 
+To suggest an new feature or other improvement, create an issue on Github and choose the type 'Feature request'. Please fill in the template as provided.
+
 ### Open a Pull Request
 
 - Fork the repo, create a branch, implement your changes, add any relevant tests, submit a PR when your changes are **tested** and ready for review.
