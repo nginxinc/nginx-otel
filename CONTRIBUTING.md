@@ -37,6 +37,10 @@ To suggest a new feature or other improvement, create an issue on GitHub and cho
 
 <!-- ### Go/Python/Bash/etc... Guidelines (OPTIONAL) -->
 
+### NGINX Code Guidelines
+
+Before diving into the NGINX codebase or contributing, it's important to understand the fundamental principles and techniques outlined in the [NGINX Development Guide] (http://nginx.org/en/docs/dev/development_guide.html).
+
 ### Git Guidelines
 
 - Keep a clean, concise and meaningful git commit history on your branch (within reason), rebasing locally and squashing before submitting a PR.
