@@ -26,7 +26,7 @@ sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 
 Clone the NGINX repository.
 ```bash
-git clone git@github.com:nginx/nginx.git
+git clone https://github.com/nginx/nginx.git
 ```
 
 Configure NGINX to create objects necessary for dynamic module compilation. Objects will be placed into the `nginx/objs` directory.
@@ -38,7 +38,7 @@ auto/configure --with-compat
 Exit the NGINX directory and clone the `ngx_otel_module` repository.
 ```bash
 cd ..
-git clone git@github.com:nginxinc/nginx-otel.git
+git clone https://github.com/nginxinc/nginx-otel.git
 ```
 
 Configure and build the NGINX OTel module.
