@@ -29,7 +29,7 @@ Clone the NGINX repository.
 git clone https://github.com/nginx/nginx.git
 ```
 
-Configure NGINX to create objects necessary for dynamic module compilation. Objects will be placed into the `nginx/objs` directory.
+Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory.
 ```bash
 cd nginx
 auto/configure --with-compat
