@@ -24,12 +24,12 @@ sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
 sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 ```
 
-Clone the NGINX repository.
+For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the NGINX Github repository.
 ```bash
 git clone https://github.com/nginx/nginx.git
 ```
 
-Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory.
+Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. **Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
 ```bash
 cd nginx
 auto/configure --with-compat
@@ -55,11 +55,15 @@ make
 Compilation will produce a binary named `ngx_otel_module.so`.
 
 ## Installation
-If necessary, follow [instructions](https://nginx.org/en/docs/install.html) to install NGINX. Alternatively, you may choose to [download binaries](https://nginx.org/en/download.html).
+***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps.
 
-Copy the `ngx_otel_module.so` dynamic module binary to the NGINX configuration directory, typically located at: `/etc/nginx/modules`.
+Follow [instructions](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#compiling-and-installing-from-source) related to compiling and installing NGINX. Skip procedures for downloading source code.
 
-Load the module by adding the following line to the top of the main NGINX configuration file, typically located at: `/etc/nginx/nginx.conf`.
+By default, this will install NGINX into `/usr/local/nginx`. The following steps assume this directory structure.
+
+Copy the `ngx_otel_module.so` dynamic module binary to `/usr/local/nginx/modules`.
+
+Load the module by adding the following line to the top of the main NGINX configuration file, located at: `/usr/local/nginx/conf/nginx.conf`.
 
 ```nginx
 load_module modules/ngx_otel_module.so;
