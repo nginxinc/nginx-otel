@@ -3,7 +3,7 @@
 ## What is OpenTelemetry
 OpenTelemetry (OTel) is an observability framework for monitoring, tracing, troubleshooting, and optimizing applications. OTel enables the collection of telemetry data from a deployed application stack.
 
-## What is the Native NGINX Otel Module
+## What is the NGINX Native OTel Module
 The `ngx_otel_module` dynamic module enables NGINX Open-Source or NGINX Plus to send telemetry data to an OTel collector. It provides support for [W3C trace context](https://www.w3.org/TR/trace-context/) propagation, OTLP/gRPC trace exports and offers several benefits over exiting OTel modules, including:
 
 ### Better Performance ###
@@ -13,7 +13,7 @@ The `ngx_otel_module` dynamic module enables NGINX Open-Source or NGINX Plus to 
 Setup and configuration can be done right in NGINX configuration files.
 
 ### Fully Dynamic Variable-Based Sampling ###
-The module provides the ability to trace a particular session by cookie/token. [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic module control via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
+The module provides the ability to trace a particular session by cookie/token. Additionally, [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic module control via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
 
 ## Building
 Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or Debian based systems:
@@ -24,12 +24,17 @@ sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
 sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 ```
 
-For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the NGINX Github repository.
+For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the NGINX Github repository. 
+
+**Important:** To ensure compatibility, the `ngx_otel_module` and the NGINX binary that it will be used with, will need to be built using the same NGINX source code and operating system. We will build and install NGINX from obtained sources in a later step. When obtaining NGINX sources from Github, please ensure that you switch to the branch that you intend to use with the module binary. For simplicity, we will assume that the `main` branch will be used for the remainder of this tutorial.
+
 ```bash
 git clone https://github.com/nginx/nginx.git
 ```
 
-Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. **Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
+Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. 
+
+**Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
 ```bash
 cd nginx
 auto/configure --with-compat
@@ -55,7 +60,7 @@ make
 Compilation will produce a binary named `ngx_otel_module.so`.
 
 ## Installation
-***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps.
+***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps on the same operating system.
 
 Follow [instructions](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#compiling-and-installing-from-source) related to compiling and installing NGINX. Skip procedures for downloading source code.
 
