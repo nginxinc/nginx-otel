@@ -12,8 +12,10 @@ The `ngx_otel_module` dynamic module enables NGINX Open-Source or NGINX Plus to 
 ### Easy Provisioning ###
 Setup and configuration can be done right in NGINX configuration files.
 
-### Fully Dynamic Variable-Based Sampling ###
-The module provides the ability to trace a particular session by cookie/token. Additionally, [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic module control via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
+### Dynamic, Variable-Based Control ###
+The ability to control trace parameters dynamically using cookies, tokens, and variables. Please see our [Ratio-based Tracing](#ratio-based-tracing) example for more details.
+
+Additionally, [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic control of sampling parameters via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
 
 ## Building
 Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or Debian based systems:
@@ -24,7 +26,7 @@ sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
 sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 ```
 
-For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the NGINX Github repository. 
+For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the [NGINX Github repository](https://github.com/nginx/nginx).
 
 **Important:** To ensure compatibility, the `ngx_otel_module` and the NGINX binary that it will be used with, will need to be built using the same NGINX source code and operating system. We will build and install NGINX from obtained sources in a later step. When obtaining NGINX sources from Github, please ensure that you switch to the branch that you intend to use with the module binary. For simplicity, we will assume that the `main` branch will be used for the remainder of this tutorial.
 
