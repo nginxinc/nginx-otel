@@ -1,51 +1,101 @@
-# nginx_otel
+# NGINX Native OpenTelemetry (OTel) Module
 
-This project provides support for OpenTelemetry distributed tracing in Nginx, offering:
+## What is OpenTelemetry
+OpenTelemetry (OTel) is an observability framework for monitoring, tracing, troubleshooting, and optimizing applications. OTel enables the collection of telemetry data from a deployed application stack.
 
-- Lightweight and high-performance incoming HTTP request tracing
-- [W3C trace context](https://www.w3.org/TR/trace-context/) propagation
-- OTLP/gRPC trace export
-- Fully Dynamic Variable-Based Sampling
+## What is the NGINX Native OTel Module
+The `ngx_otel_module` dynamic module enables NGINX Open-Source or NGINX Plus to send telemetry data to an OTel collector. It provides support for [W3C trace context](https://www.w3.org/TR/trace-context/) propagation, OTLP/gRPC trace exports and offers several benefits over exiting OTel modules, including:
+
+### Better Performance ###
+3rd-party OTel implementations reduce performance of request processing by as much as 50% when tracing is enabled. The NGINX Native module limits this impact to approximately 10-15%.
+
+### Easy Provisioning ###
+Setup and configuration can be done right in NGINX configuration files.
+
+### Fully Dynamic Variable-Based Sampling ###
+The module provides the ability to trace a particular session by cookie/token. Additionally, [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic module control via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
 
 ## Building
+Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or Debian based systems:
 
-Install build tools and dependencies:
+Install build tools and dependencies.
 ```bash
-  $ sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
-  $ sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
+sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
+sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 ```
 
-Configure Nginx:
+For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the NGINX Github repository. 
+
+**Important:** To ensure compatibility, the `ngx_otel_module` and the NGINX binary that it will be used with, will need to be built using the same NGINX source code and operating system. We will build and install NGINX from obtained sources in a later step. When obtaining NGINX sources from Github, please ensure that you switch to the branch that you intend to use with the module binary. For simplicity, we will assume that the `main` branch will be used for the remainder of this tutorial.
+
 ```bash
-  $ ./configure --with-compat
+git clone https://github.com/nginx/nginx.git
 ```
 
-Configure and build Nginx OTel module:
+Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. 
+
+**Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
 ```bash
-  $ mkdir build
-  $ cd build
-  $ cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
-  $ make
+cd nginx
+auto/configure --with-compat
 ```
 
-## Getting Started
+Exit the NGINX directory and clone the `ngx_otel_module` repository.
+```bash
+cd ..
+git clone https://github.com/nginxinc/nginx-otel.git
+```
 
-### Simple Tracing
+Configure and build the NGINX OTel module.
 
-Dumping all the requests could be useful even in non-distributed environment.
+**Important**: replace the path in the `cmake` command with the path to the `nginx/objs` directory from above.
+```bash
+cd nginx-otel
+mkdir build
+cd build
+cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
+make
+```
+
+Compilation will produce a binary named `ngx_otel_module.so`.
+
+## Installation
+***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps on the same operating system.
+
+Follow [instructions](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#compiling-and-installing-from-source) related to compiling and installing NGINX. Skip procedures for downloading source code.
+
+By default, this will install NGINX into `/usr/local/nginx`. The following steps assume this directory structure.
+
+Copy the `ngx_otel_module.so` dynamic module binary to `/usr/local/nginx/modules`.
+
+Load the module by adding the following line to the top of the main NGINX configuration file, located at: `/usr/local/nginx/conf/nginx.conf`.
 
 ```nginx
-  http {
-      otel_trace on;
-      server {
-          location / {
-              proxy_pass http://backend;
-          }
-      }
-  }
+load_module modules/ngx_otel_module.so;
+```
+
+## Configuring the Module
+For a complete list of directives, embedded variables, default span attributes and sample configurations, please refer to the [`ngx_otel_module` documentation](https://nginx.org/en/docs/ngx_otel_module.html).
+
+## Examples
+Use these examples to configure some common use-cases for OTel tracing.
+
+### Simple Tracing
+This example sends telemetry data for all http requests.
+
+```nginx
+http {
+    otel_trace on;
+    server {
+        location / {
+            proxy_pass http://backend;
+        }
+    }
+}
 ```
 
 ### Parent-based Tracing
+In this example, we inherit trace contexts from incoming requests and record spans only if a parent span is sampled. We also propagate trace contexts and sampling decisions to upstream servers.
 
 ```nginx
 http {
@@ -61,6 +111,7 @@ http {
 ```
 
 ### Ratio-based Tracing
+In this ratio-based example, tracing is configured for a percentage of traffic (in this case 10%):
 
 ```nginx
 http {
@@ -87,105 +138,21 @@ http {
 }
 ```
 
-## How to Use
+## Collecting and Viewing Traces
+There are several methods and available software packages for viewing traces. For a quick start, [Jaeger](https://www.jaegertracing.io/) provides an all-in-one container to collect, process and view OTel trace data. Follow [these steps](https://www.jaegertracing.io/docs/next-release/deployment/#all-in-one) to download, install, launch and use Jaeger's OTel services.
 
-### Directives
+# Community
+- Our Slack channel [#nginx-opentelemetry-module](https://nginxcommunity.slack.com/archives/C05NMNAQDU6), is the go-to place to start asking questions and sharing your thoughts.
 
-#### Available in `http/server/location` contexts
+- Our [GitHub issues page](https://github.com/nginxinc/nginx-otel/issues) offers space for a more technical discussion at your own pace.
 
-**`otel_trace`** `on | off | “$var“;`
+# Contributing
+Get involved with the project by contributing! Please see our [contributing guide](CONTRIBUTING.md) for details.
 
-The argument is a “complex value”, which should result in `on`/`off` or `1`/`0`. Default is `off`.
+# Change Log
+See our [release page](https://github.com/nginxinc/nginx-otel/releases) to keep track of updates.
 
-**`otel_trace_context`** `ignore | extract | inject | propagate;`
-
-Defines how to propagate traceparent/tracestate headers. `extract` uses existing trace context from request. `inject` adds new context to request, rewriting existing headers if any. `propagate` updates existing context (i.e. combines `extract` and `inject`). `ignore` skips context headers processing. Default is `ignore`.
-
-**`otel_span_name`** `name;`
-
-Default is request’s location name.
-
-**`otel_span_attr`** `name “$var”;`
-
-If name starts with `http.(request|response).header.` the type of added attribute will be `string[]` to match semantic conventions (i.e. header value will be represented as a single element array). Otherwise, the attribute type will be `string`.
-
-#### Available in `http` context
-
-**`otel_exporter`**`;`
-
-Defines how to export tracing data. There can only be one `otel_exporter` directive in a given `http` context.
-
-```nginx
-otel_exporter {
-    endpoint “host:port“;
-    interval 5s;         # max interval between two exports
-    batch_size 512;      # max number of spans to be sent in one batch per worker
-    batch_count 4;       # max number of pending batches per worker, over the limit spans are dropped
-}
-```
-
-**`otel_service_name`** `name;`
-
-Sets `service.name` attribute of OTel resource. By default, it is set to `unknown_service:nginx`.
-
-### Available in `otel_exporter` context
-
-**`endpoint`** `"host:post";`
-
-Defines exporter endpoint `host` and `port`. Only one endpoint per `otel_exporter` can be specified.
-
-**`interval`** `5s;`
-
-Maximum interval between two exports. Default is `5s`.
-
-**`batch_size`** `512;`
-
-Maximum number of spans to be sent in one batch per worker. Detault is 512.
-
-**`batch_count`** `4;`
-
-Maximum number of pending batches per worker, over the limit spans are dropped. Default is 4.
-
-### Variables
-
-`$otel_trace_id` - trace id.
-
-`$otel_span_id` - current span id.
-
-`$otel_parent_id` - parent span id.
-
-`$otel_parent_sampled` - `sampled` flag of parent span, `1`/`0`.
-
-### Default span [attributes](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/http.md)
-
-`http.method`
-
-`http.target`
-
-`http.route`
-
-`http.scheme`
-
-`http.flavor`
-
-`http.user_agent`
-
-`http.request_content_length`
-
-`http.response_content_length`
-
-`http.status_code`
-
-`net.host.name`
-
-`net.host.port`
-
-`net.sock.peer.addr`
-
-`net.sock.peer.port`
-
-## License
-
+# License
 [Apache License, Version 2.0](https://github.com/nginxinc/nginx-otel/blob/main/LICENSE)
 
 &copy; [F5, Inc.](https://www.f5.com/) 2023
