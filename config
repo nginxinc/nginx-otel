@@ -1,10 +1,257 @@
 ngx_addon_name=ngx_otel_module
+ngx_module_type=HTTP
+ngx_module_name=$ngx_addon_name
+ngx_module_incs=
+ngx_module_deps=" \
+  $ngx_addon_dir/src/batch_exporter.hpp \
+  $ngx_addon_dir/src/str_view.hpp \
+  $ngx_addon_dir/src/trace_context.hpp \
+  $ngx_addon_dir/src/trace_service_client.hpp \
+"
+ngx_module_srcs=" \
+  $ngx_addon_dir/src/http_module.cpp \
+  objs/opentelemetry/proto/common/v1/common.pb.cc \
+  objs/opentelemetry/proto/resource/v1/resource.pb.cc \
+  objs/opentelemetry/proto/trace/v1/trace.pb.cc \
+  objs/opentelemetry/proto/collector/trace/v1/trace_service.pb.cc \
+  objs/opentelemetry/proto/collector/trace/v1/trace_service.grpc.pb.cc \
+"
 
-cmake -D NGX_OTEL_NGINX_BUILD_DIR=$NGX_OBJS \
-      -D NGX_OTEL_FETCH_DEPS=OFF \
-      -D NGX_OTEL_PROTO_DIR=$NGX_OTEL_PROTO_DIR \
-      -D CMAKE_LIBRARY_OUTPUT_DIRECTORY=$PWD/$NGX_OBJS \
-      -D "CMAKE_C_FLAGS=$NGX_CC_OPT" \
-      -D "CMAKE_CXX_FLAGS=$NGX_CC_OPT" \
-      -D "CMAKE_MODULE_LINKER_FLAGS=$NGX_LD_OPT" \
-      -S $ngx_addon_dir -B $NGX_OBJS/otel || exit 1
+ngx_feature="c-ares"
+ngx_feature_name=""
+ngx_feature_run=no
+ngx_feature_incs="#include <ares.h>"
+ngx_feature_path="/usr/include"
+ngx_feature_libs="-lcares"
+ngx_feature_test="ares_version(NULL);"
+. auto/feature
+
+if [ $ngx_found = no ]; then
+
+    # FreeBSD port
+
+    ngx_feature="libcares in /usr/local/"
+    ngx_feature_path="/usr/local/include"
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lcares"
+    else
+        ngx_feature_libs="-L/usr/local/lib -lcares"
+    fi
+
+    . auto/feature
+fi
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lcares"
+fi
+
+unset ngx_found
+
+### C++ feature test is unavailable in nginx
+
+CXX=${CXX:-c++}
+CXXFLAGS="$CXXFLAGS --std=c++17"
+CXX_TEST_FLAGS=${CXX_TEST_FLAGS:---std=c++17}
+
+autocppfeature()
+{
+    echo $ngx_n "checking for $ngx_feature ...$ngx_c"
+
+cat << END >> $NGX_AUTOCONF_ERR
+----------------------------------------
+checking for $ngx_feature
+
+END
+
+    ngx_found=no
+
+    if test -n "$ngx_feature_name"; then
+        ngx_have_feature=`echo $ngx_feature_name \
+                   | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ`
+    fi
+
+    if test -n "$ngx_feature_path"; then
+        for ngx_temp in $ngx_feature_path; do
+            ngx_feature_inc_path="$ngx_feature_inc_path -I $ngx_temp"
+        done
+    fi
+
+cat << END > $NGX_AUTOTEST.cpp
+
+$ngx_feature_incs
+
+int main(void) {
+    $ngx_feature_test;
+    return 0;
+}
+
+END
+
+    ngx_test="$CXX $CXX_TEST_FLAGS $CXX_AUX_FLAGS $ngx_feature_inc_path \
+              -o $NGX_AUTOTEST $NGX_AUTOTEST.cpp $NGX_TEST_LD_OPT $ngx_feature_libs"
+
+    ngx_feature_inc_path=
+
+    eval "/bin/sh -c \"$ngx_test\" >> $NGX_AUTOCONF_ERR 2>&1"
+
+    if [ -x $NGX_AUTOTEST ]; then
+
+        echo " found"
+        ngx_found=yes
+
+        if test -n "$ngx_feature_name"; then
+            have=$ngx_have_feature . auto/have
+        fi
+
+    else
+        echo " not found"
+        echo "----------"     >> $NGX_AUTOCONF_ERR
+        cat $NGX_AUTOTEST.cpp >> $NGX_AUTOCONF_ERR
+        echo "----------"     >> $NGX_AUTOCONF_ERR
+        echo $ngx_test        >> $NGX_AUTOCONF_ERR
+        echo "----------"     >> $NGX_AUTOCONF_ERR
+    fi
+
+    rm -rf $NGX_AUTOTEST*
+}
+
+ngx_feature="libre2"
+ngx_feature_name=""
+ngx_feature_run=no
+ngx_feature_incs="#include <re2/re2.h>"
+ngx_feature_path="/usr/include"
+ngx_feature_libs="-lre2"
+ngx_feature_test="RE2::FullMatch(\"hello\", \"h.*o\");"
+
+autocppfeature
+
+if [ $ngx_found = no ]; then
+
+    # FreeBSD port
+
+    ngx_feature="libre2 in /usr/local/"
+    ngx_feature_path="/usr/local/include"
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lre2"
+    else
+        ngx_feature_libs="-L/usr/local/lib -lre2"
+    fi
+
+    autocppfeature
+fi
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lre2"
+fi
+
+ngx_feature="opentelemetry-cpp"
+ngx_feature_name=""
+ngx_feature_run=no
+ngx_feature_incs="#include <opentelemetry/nostd/string_view.h>
+                  typedef opentelemetry::nostd::string_view StrView;"
+ngx_feature_path="/usr/include"
+ngx_feature_libs="-lopentelemetry_common"
+ngx_feature_test="using namespace std;
+                  StrView str, prefix;
+                  str.substr(0, prefix.size());"
+
+autocppfeature
+
+if [ $ngx_found = no ]; then
+
+    # FreeBSD port
+
+    ngx_feature="opentelemetry in /usr/local/"
+    ngx_feature_path="/usr/local/include"
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lopentelemetry_common"
+    else
+        ngx_feature_libs="-L/usr/local/lib -lopentelemetry_common -lopentelemetry_resources -lopentelemetry_trace"
+    fi
+
+    autocppfeature
+fi
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lopentelemetry_common -lopentelemetry_resources -lopentelemetry_trace"
+fi
+
+#if [ ! -d $prefix/include/opentelemetry/proto ]; then
+#    echo "Need to install opentelemetry-proto."
+#    exit 2
+#fi
+
+ngx_feature="protobuf"
+ngx_feature_name=""
+ngx_feature_run=no
+ngx_feature_incs="#include <google/protobuf/stubs/logging.h>"
+ngx_feature_path="/usr/include"
+ngx_feature_libs="-lprotobuf"
+ngx_feature_test="using namespace google::protobuf;
+                  google::protobuf::LogLevel logLevel;
+		  const char* filename;
+		  int line;
+                  google::protobuf::internal::LogMessage(logLevel, filename, line);"
+
+autocppfeature
+
+if [ $ngx_found = no ]; then
+
+    # FreeBSD port
+
+    ngx_feature="protobuf in /usr/local/"
+    ngx_feature_path="/usr/local/include"
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lprotobuf"
+    else
+        ngx_feature_libs="-L/usr/local/lib -lprotobuf"
+    fi
+
+    autocppfeature
+fi
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lprotobuf"
+fi
+
+ngx_feature="grpc"
+ngx_feature_name=""
+ngx_feature_run=no
+ngx_feature_incs="#include <grpc/support/log.h>"
+ngx_feature_path="/usr/include"
+ngx_feature_libs="-lgrpc -lgpr"
+ngx_feature_test="gpr_log_verbosity_init();"
+
+autocppfeature
+
+if [ $ngx_found = no ]; then
+
+    # FreeBSD port
+
+    ngx_feature="grpc in /usr/local/"
+    ngx_feature_path="/usr/local/include"
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R/usr/local/lib -L/usr/local/lib -lgrpc -lgpr"
+    else
+        ngx_feature_libs="-L/usr/local/lib -lgrpc -lgpr"
+    fi
+
+    autocppfeature
+fi
+
+if [ $ngx_found = yes ]; then
+    ngx_module_libs="$ngx_module_libs -lgrpc -lgpr"
+fi
+
+#ngx_module_libs="$ngx_module_libs -lupb -lz -lm -lrt -lssl -lcrypto"
+ngx_module_libs="$ngx_module_libs -lz -lm -lrt -lssl -lcrypto"
+
+. auto/module
+
+CORE_INCS="$CORE_INCS $ngx_feature_path"
+OTEL_NGX_SRCS="$ngx_module_srcs"
