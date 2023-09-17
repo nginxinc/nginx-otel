@@ -11,7 +11,7 @@ extern "C" {
 #include "trace_context.hpp"
 #include "batch_exporter.hpp"
 
-extern ngx_module_t gHttpModule;
+extern ngx_module_t ngx_otel_module;
 
 namespace {
 
@@ -143,7 +143,7 @@ ngx_str_t toNgxStr(StrView str)
 
 LocationConf* getLocationConf(ngx_http_request_t* r)
 {
-    return (LocationConf*)ngx_http_get_module_loc_conf(r, gHttpModule);
+    return (LocationConf*)ngx_http_get_module_loc_conf(r, ngx_otel_module);
 }
 
 void cleanupOtelCtx(void* data)
@@ -152,7 +152,7 @@ void cleanupOtelCtx(void* data)
 
 OtelCtx* getOtelCtx(ngx_http_request_t* r)
 {
-    auto ctx = (OtelCtx*)ngx_http_get_module_ctx(r, gHttpModule);
+    auto ctx = (OtelCtx*)ngx_http_get_module_ctx(r, ngx_otel_module);
 
     // restore module context if it was reset by e.g. internal redirect
     if (ctx == NULL && (r->internal || r->filter_finalize)) {
@@ -160,7 +160,7 @@ OtelCtx* getOtelCtx(ngx_http_request_t* r)
         for (auto cln = r->pool->cleanup; cln; cln = cln->next) {
             if (cln->handler == cleanupOtelCtx) {
                 ctx = (OtelCtx*)cln->data;
-                ngx_http_set_ctx(r, ctx, gHttpModule);
+                ngx_http_set_ctx(r, ctx, ngx_otel_module);
                 break;
             }
         }
@@ -181,7 +181,7 @@ OtelCtx* createOtelCtx(ngx_http_request_t* r)
     storage->handler = cleanupOtelCtx;
 
     auto ctx = new (storage->data) OtelCtx{};
-    ngx_http_set_ctx(r, ctx, gHttpModule);
+    ngx_http_set_ctx(r, ctx, ngx_otel_module);
 
     return ctx;
 }
@@ -550,7 +550,7 @@ ngx_int_t initModule(ngx_conf_t* cf)
 ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
 {
     auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
-        cycle, gHttpModule);
+        cycle, ngx_otel_module);
 
     // no 'http' or 'otel_exporter' blocks
     if (mcf == NULL || mcf->endpoint.len == 0) {
@@ -584,7 +584,7 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
         }
 
         auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
-            ngx_cycle, gHttpModule);
+            ngx_cycle, ngx_otel_module);
 
         ngx_add_timer(ev, mcf->interval);
     };
@@ -833,7 +833,7 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
         conf->spanAttrs = prev->spanAttrs;
     }
 
-    auto mcf = (MainConf*)ngx_http_conf_get_module_main_conf(cf, gHttpModule);
+    auto mcf = (MainConf*)ngx_http_conf_get_module_main_conf(cf, ngx_otel_module);
 
     if (mcf->endpoint.len == 0 && conf->trace) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -844,7 +844,7 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
     return NGX_CONF_OK;
 }
 
-ngx_http_module_t gHttpModuleCtx = {
+ngx_http_module_t ngx_otel_moduleCtx = {
     addVariables,                       /* preconfiguration */
     initModule,                         /* postconfiguration */
 
@@ -860,9 +860,9 @@ ngx_http_module_t gHttpModuleCtx = {
 
 }
 
-ngx_module_t gHttpModule = {
+ngx_module_t ngx_otel_module = {
     NGX_MODULE_V1,
-    &gHttpModuleCtx,                    /* module context */
+    &ngx_otel_moduleCtx,                /* module context */
     gCommands,                          /* module directives */
     NGX_HTTP_MODULE,                    /* module type */
     NULL,                               /* init master */
