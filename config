@@ -9,7 +9,7 @@ ngx_module_deps=" \
   $ngx_addon_dir/src/trace_service_client.hpp \
 "
 ngx_module_srcs=" \
-  $ngx_addon_dir/src/http_module.cpp \
+  $ngx_addon_dir/src/ngx_otel_module.cpp \
   objs/opentelemetry/proto/common/v1/common.pb.cc \
   objs/opentelemetry/proto/resource/v1/resource.pb.cc \
   objs/opentelemetry/proto/trace/v1/trace.pb.cc \
