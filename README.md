@@ -4,7 +4,7 @@
 OpenTelemetry (OTel) is an observability framework for monitoring, tracing, troubleshooting, and optimizing applications. OTel enables the collection of telemetry data from a deployed application stack.
 
 ## What is the NGINX Native OTel Module
-The `ngx_otel_module` dynamic module enables NGINX Open-Source or NGINX Plus to send telemetry data to an OTel collector. It provides support for [W3C trace context](https://www.w3.org/TR/trace-context/) propagation, OTLP/gRPC trace exports and offers several benefits over exiting OTel modules, including:
+The `ngx_otel_module` dynamic module enables NGINX Open Source or NGINX Plus to send telemetry data to an OTel collector. It provides support for [W3C trace context](https://www.w3.org/TR/trace-context/) propagation, OpenTelemetry Protocol (OTLP)/gRPC trace exports and offers several benefits over exiting OTel modules, including:
 
 ### Better Performance ###
 3rd-party OTel implementations reduce performance of request processing by as much as 50% when tracing is enabled. The NGINX Native module limits this impact to approximately 10-15%.
