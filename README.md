@@ -87,7 +87,12 @@ This example sends telemetry data for all http requests.
 
 ```nginx
 http {
+    otel_exporter {
+        endpoint localhost:4317;
+    }
+
     otel_trace on;
+
     server {
         location / {
             proxy_pass http://backend;
