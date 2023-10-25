@@ -22,7 +22,7 @@ Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or De
 
 Install build tools and dependencies.
 ```bash
-sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
+sudo apt install build-essential libssl-dev zlib1g-dev libpcre3-dev
 sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
 ```
 
@@ -34,13 +34,6 @@ For the next step, you will need the `configure` script that is packaged with th
 git clone https://github.com/nginx/nginx.git
 ```
 
-Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. 
-
-**Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
-```bash
-cd nginx
-auto/configure --with-compat
-```
 
 Exit the NGINX directory and clone the `ngx_otel_module` repository.
 ```bash
@@ -48,14 +41,24 @@ cd ..
 git clone https://github.com/nginxinc/nginx-otel.git
 ```
 
-Configure and build the NGINX OTel module.
-
-**Important**: replace the path in the `cmake` command with the path to the `nginx/objs` directory from above.
+Set up `NGX_OTEL_PROTO_DIR` variable to point it into root of `opentelemetry-proto`:
 ```bash
-cd nginx-otel
-mkdir build
-cd build
-cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
+export NGX_OTEL_PROTO_DIR=/opt/local/include
+```
+
+Configure and build the NGINX OTel module as usual:
+
+- for a built-in module:
+```bash
+cd nginx
+./configure --with-http_ssl_module --add-module=../nginx-otel
+make
+```
+
+- for a dynamic module:
+```bash
+cd nginx
+./configure --with-http_ssl_module --add-dynamic-module=../nginx-otel
 make
 ```
 
