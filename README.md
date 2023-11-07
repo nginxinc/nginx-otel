@@ -17,60 +17,29 @@ The ability to control trace parameters dynamically using cookies, tokens, and v
 
 Additionally, [NGINX Plus](https://www.nginx.com/products/nginx/), available as part of a [commercial subscription](https://www.nginx.com/products/), enables dynamic control of sampling parameters via the [NGINX Plus API](http://nginx.org/en/docs/http/ngx_http_api_module.html) and [key-value store](http://nginx.org/en/docs/http/ngx_http_keyval_module.html) modules.
 
-## Building
-Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or Debian based systems:
+## Installing
+Prebuilt packages of the module are available for easy installation. Follow these steps to install NGINX Open Source with the OTel module. See list of [compatible operating systems](https://nginx.org/en/linux_packages.html#distributions).
 
-Install build tools and dependencies.
+### Adding Package Repositories and Installing NGINX Open Source
+Follow the official NGINX Open Source [installation steps](https://nginx.org/en/linux_packages.html#instructions) to set up package repositories for your specific operating system and install NGINX.
+
+**Important:** To ensure module compatibility, you must use officially distributed NGINX binaries. Compatibility with community distributed binaries, commonly available through various operating system vendors, is not guaranteed.
+
+### Installing the OTel Module from Packages
+Once remote package repositories have been added and local package records have been updated, you may install the OTel module (`nginx-module-otel`) for your specific operating system. As an example, run the following commands to install on:
+
+#### RedHat, RHEL and Derivatives
 ```bash
-sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
-sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
+sudo yum install nginx-module-otel
 ```
 
-For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the [NGINX Github repository](https://github.com/nginx/nginx).
-
-**Important:** To ensure compatibility, the `ngx_otel_module` and the NGINX binary that it will be used with, will need to be built using the same NGINX source code and operating system. We will build and install NGINX from obtained sources in a later step. When obtaining NGINX sources from Github, please ensure that you switch to the branch that you intend to use with the module binary. For simplicity, we will assume that the `main` branch will be used for the remainder of this tutorial.
-
+#### Debian, Ubuntu and derivatives
 ```bash
-git clone https://github.com/nginx/nginx.git
+sudo apt install nginx-module-otel
 ```
 
-Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. 
-
-**Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
-```bash
-cd nginx
-auto/configure --with-compat
-```
-
-Exit the NGINX directory and clone the `ngx_otel_module` repository.
-```bash
-cd ..
-git clone https://github.com/nginxinc/nginx-otel.git
-```
-
-Configure and build the NGINX OTel module.
-
-**Important**: replace the path in the `cmake` command with the path to the `nginx/objs` directory from above.
-```bash
-cd nginx-otel
-mkdir build
-cd build
-cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
-make
-```
-
-Compilation will produce a binary named `ngx_otel_module.so`.
-
-## Installation
-***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps on the same operating system.
-
-Follow [instructions](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#compiling-and-installing-from-source) related to compiling and installing NGINX. Skip procedures for downloading source code.
-
-By default, this will install NGINX into `/usr/local/nginx`. The following steps assume this directory structure.
-
-Copy the `ngx_otel_module.so` dynamic module binary to `/usr/local/nginx/modules`.
-
-Load the module by adding the following line to the top of the main NGINX configuration file, located at: `/usr/local/nginx/conf/nginx.conf`.
+### Enabling the OTel Module
+Following the installation steps above will install the module into `/etc/nginx/modules` by default. Load the module by adding the following line to the top of the main NGINX configuration file, located at `/etc/nginx/nginx.conf`.
 
 ```nginx
 load_module modules/ngx_otel_module.so;
@@ -147,6 +116,65 @@ http {
 
 ## Collecting and Viewing Traces
 There are several methods and available software packages for viewing traces. For a quick start, [Jaeger](https://www.jaegertracing.io/) provides an all-in-one container to collect, process and view OTel trace data. Follow [these steps](https://www.jaegertracing.io/docs/next-release/deployment/#all-in-one) to download, install, launch and use Jaeger's OTel services.
+
+## Building
+Follow these steps to build the `ngx_otel_module` dynamic module on Ubuntu or Debian based systems:
+
+Install build tools and dependencies.
+```bash
+sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
+sudo apt install pkg-config libc-ares-dev libre2-dev # for gRPC
+```
+
+For the next step, you will need the `configure` script that is packaged with the NGINX source code. There are several methods for obtaining NGINX sources. You may choose to [download](http://hg.nginx.org/nginx/archive/tip.tar.gz) them or clone them directly from the [NGINX Github repository](https://github.com/nginx/nginx).
+
+**Important:** To ensure compatibility, the `ngx_otel_module` and the NGINX binary that it will be used with, will need to be built using the same NGINX source code and operating system. We will build and install NGINX from obtained sources in a later step. When obtaining NGINX sources from Github, please ensure that you switch to the branch that you intend to use with the module binary. For simplicity, we will assume that the `main` branch will be used for the remainder of this tutorial.
+
+```bash
+git clone https://github.com/nginx/nginx.git
+```
+
+Configure NGINX to generate files necessary for dynamic module compilation. These files will be placed into the `nginx/objs` directory. 
+
+**Important:** If you did not obtain NGINX source code via the clone method in the previous step, you will need to adjust paths in the following commands to conform to your specific directory structure.
+```bash
+cd nginx
+auto/configure --with-compat
+```
+
+Exit the NGINX directory and clone the `ngx_otel_module` repository.
+```bash
+cd ..
+git clone https://github.com/nginxinc/nginx-otel.git
+```
+
+Configure and build the NGINX OTel module.
+
+**Important**: replace the path in the `cmake` command with the path to the `nginx/objs` directory from above.
+```bash
+cd nginx-otel
+mkdir build
+cd build
+cmake -DNGX_OTEL_NGINX_BUILD_DIR=/path/to/configured/nginx/objs ..
+make
+```
+
+Compilation will produce a binary named `ngx_otel_module.so`.
+
+## Installing from Built Binaries
+***Important:*** The built `ngx_otel_module.so` dynamic module binary will ONLY be compatible with the same version of NGINX source code that was used to build it. To guarantee proper operation, you will need to build and install NGINX from sources obtained in previous steps on the same operating system.
+
+Follow [instructions](https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-open-source/#compiling-and-installing-from-source) related to compiling and installing NGINX. Skip procedures for downloading source code.
+
+By default, this will install NGINX into `/usr/local/nginx`. The following steps assume this directory structure.
+
+Copy the `ngx_otel_module.so` dynamic module binary to `/usr/local/nginx/modules`.
+
+Load the module by adding the following line to the top of the main NGINX configuration file, located at `/usr/local/nginx/conf/nginx.conf`.
+
+```nginx
+load_module modules/ngx_otel_module.so;
+```
 
 # Community
 - Our Slack channel [#nginx-opentelemetry-module](https://nginxcommunity.slack.com/archives/C05NMNAQDU6), is the go-to place to start asking questions and sharing your thoughts.
