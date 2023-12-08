@@ -243,7 +243,13 @@ ngx_int_t setHeader(ngx_http_request_t* r, StrView name, StrView value)
             return NGX_OK;
         }
 
-        header = (ngx_table_elt_t*)ngx_list_push(&r->headers_in.headers);
+        auto headers = &r->headers_in.headers;
+        if (!headers->pool && ngx_list_init(headers, r->pool, 2,
+                sizeof(ngx_table_elt_t)) != NGX_OK) {
+            return NGX_ERROR;
+        }
+
+        header = (ngx_table_elt_t*)ngx_list_push(headers);
         if (header == NULL) {
             return NGX_ERROR;
         }
