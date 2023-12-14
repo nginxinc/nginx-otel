@@ -5,7 +5,6 @@ extern "C" {
 }
 
 #include <grpc/support/log.h>
-#include <google/protobuf/stubs/logging.h>
 
 #include "str_view.hpp"
 #include "trace_context.hpp"
@@ -507,19 +506,6 @@ void grpcLogHandler(gpr_log_func_args* args)
     ngx_log_error(level, ngx_cycle->log, 0, "OTel/grpc: %s", args->message);
 }
 
-void protobufLogHandler(google::protobuf::LogLevel logLevel,
-    const char* filename, int line, const std::string& msg)
-{
-    using namespace google::protobuf;
-
-    ngx_uint_t level = logLevel == LOGLEVEL_FATAL   ? NGX_LOG_EMERG :
-                       logLevel == LOGLEVEL_ERROR   ? NGX_LOG_ERR :
-                       logLevel == LOGLEVEL_WARNING ? NGX_LOG_WARN :
-                                 /*LOGLEVEL_INFO*/    NGX_LOG_INFO;
-
-    ngx_log_error(level, ngx_cycle->log, 0, "OTel/protobuf: %s", msg.c_str());
-}
-
 ngx_int_t initModule(ngx_conf_t* cf)
 {
     auto cmcf = (ngx_http_core_main_conf_t*)ngx_http_conf_get_module_main_conf(
@@ -542,7 +528,6 @@ ngx_int_t initModule(ngx_conf_t* cf)
     *h = onRequestEnd;
 
     gpr_set_log_function(grpcLogHandler);
-    google::protobuf::SetLogHandler(protobufLogHandler);
 
     return NGX_OK;
 }
