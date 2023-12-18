@@ -25,12 +25,12 @@ jobs:
           make -j 4
           strip ngx_otel_module.so
       - name: Archive module
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nginx-otel-module
           path: build/ngx_otel_module.so
       - name: Archive protoc and opentelemetry-proto
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: protoc-opentelemetry-proto
           path: |
