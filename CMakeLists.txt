@@ -21,7 +21,7 @@ if(NGX_OTEL_FETCH_DEPS)
     FetchContent_Declare(
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc
-        GIT_TAG        02384e39185f109bd299eb8482306229967dc970 # v1.46.7
+        GIT_TAG        e241f37befe7ba4688effd84bfbf99b0f681a2f7 # v1.49.4
         GIT_SUBMODULES third_party/protobuf third_party/abseil-cpp third_party/re2
         GIT_SHALLOW    ON)
 
