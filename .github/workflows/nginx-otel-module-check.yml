@@ -24,8 +24,8 @@ jobs:
       - name: Build module
         working-directory: build
         run: |
-          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
-                -DNGX_OTEL_DEV=ON ..
+          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${GITHUB_WORKSPACE}/nginx/objs \
+                -DNGX_OTEL_DEV=ON ${GITHUB_WORKSPACE}
           make -j 4
           strip ngx_otel_module.so
       - name: Archive module
@@ -33,13 +33,6 @@ jobs:
         with:
           name: nginx-otel-module
           path: build/ngx_otel_module.so
-      - name: Archive protoc and opentelemetry-proto
-        uses: actions/upload-artifact@v4
-        with:
-          name: protoc-opentelemetry-proto
-          path: |
-            build/_deps/grpc-build/third_party/protobuf/protoc
-            build/_deps/otelcpp-src/third_party/opentelemetry-proto
   test-module:
     needs: build-module
     runs-on: ubuntu-latest
@@ -51,36 +44,27 @@ jobs:
         with:
           name: nginx-otel-module
           path: build
-      - name: Download protoc and opentelemetry-proto
-        uses: actions/download-artifact@v4
-        with:
-          name: protoc-opentelemetry-proto
-          path: build/_deps
-      - name: List files
-        run: ls -laR .
-      - name: Fix protoc file permissions
-        run: chmod +x build/_deps/grpc-build/third_party/protobuf/protoc
-      - name: Install perl modules
-        run: sudo cpan IO::Socket::SSL Crypt::Misc
-      - name: Download otelcol
-        run: |
-          curl -LO https://github.com/\
-          open-telemetry/opentelemetry-collector-releases/releases/download/\
-          v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz
-          tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
-      - name: Checkout nginx and nginx-test
-        run: |
-          hg clone http://hg.nginx.org/nginx/
-          hg clone http://hg.nginx.org/nginx-tests/
+      - name: Checkout nginx
+        run: hg clone http://hg.nginx.org/nginx/
       - name: Build nginx
         working-directory: nginx
         run: |
           auto/configure --with-compat --with-debug --with-http_ssl_module \
                          --with-http_v2_module --with-http_v3_module
           make -j 4
+      - name: Install test dependecies
+        working-directory: tests
+        run: pip install -r requirements.txt
+      - name: Download otelcol
+        uses: robinraju/release-downloader@v1.9
+        with:
+          repository: open-telemetry/opentelemetry-collector-releases
+          tag: v0.96.0
+          fileName: otelcol_0.96.0_linux_amd64.tar.gz
+          extract: true
       - name: Run tests
         working-directory: tests
-        run: |
-          PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \
-              TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
-              ${PWD}/../build/ngx_otel_module.so;" prove -v .
+        env:
+          TEST_NGINX_GLOBALS: |
+            load_module ${{ github.workspace }}/build/ngx_otel_module.so;
+        run: pytest --log-cli-level=debug
