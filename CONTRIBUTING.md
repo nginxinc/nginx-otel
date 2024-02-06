@@ -35,8 +35,6 @@ To suggest a new feature or other improvement, create an issue on GitHub and cho
 
 ## Code Guidelines
 
-<!-- ### Go/Python/Bash/etc... Guidelines (OPTIONAL) -->
-
 ### NGINX Code Guidelines
 
 Before diving into the NGINX codebase or contributing, it's important to understand the fundamental principles and techniques outlined in the [NGINX Development Guide] (http://nginx.org/en/docs/dev/development_guide.html).
@@ -44,10 +42,10 @@ Before diving into the NGINX codebase or contributing, it's important to underst
 ### Git Guidelines
 
 - Keep a clean, concise and meaningful git commit history on your branch (within reason), rebasing locally and squashing before submitting a PR.
-- If possible and/or relevant, use the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format when writing a commit message, so that changelogs can be automatically generated
-- Follow the guidelines of writing a good commit message as described here <https://chris.beams.io/posts/git-commit/> and summarised in the next few points:
+- Follow below guidelines for writing commit messages:
   - In the subject line, use the present tense ("Add feature" not "Added feature").
   - In the subject line, use the imperative mood ("Move cursor to..." not "Moves cursor to...").
+  - End subject line with a period.
   - Limit the subject line to 72 characters or less.
-  - Reference issues and pull requests liberally after the subject line.
+  - Reference issues in the subject line and/or body.
   - Add more detailed description in the body of the git message (`git commit -a` to give you more space and time in your text editor to write a good message instead of `git commit -am`).
