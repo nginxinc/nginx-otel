@@ -104,6 +104,7 @@ add_compile_options(-Wall -Wtype-limits -Werror)
 
 add_library(ngx_otel_module MODULE
     src/http_module.cpp
+    src/grpc_log.cpp
     src/modules.c
     ${PROTO_SOURCES})
 

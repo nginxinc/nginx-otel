@@ -1,10 +1,6 @@
-extern "C" {
-#include <ngx_config.h>
-#include <ngx_core.h>
-#include <ngx_http.h>
-}
+#include "ngx.hpp"
 
-#include <grpc/support/log.h>
+#include "grpc_log.hpp"
 
 #include "str_view.hpp"
 #include "trace_context.hpp"
@@ -503,15 +499,6 @@ ngx_int_t onRequestEnd(ngx_http_request_t* r)
     return NGX_DECLINED;
 }
 
-void grpcLogHandler(gpr_log_func_args* args)
-{
-    ngx_uint_t level = args->severity == GPR_LOG_SEVERITY_ERROR ? NGX_LOG_ERR :
-                       args->severity == GPR_LOG_SEVERITY_INFO  ? NGX_LOG_INFO :
-                                       /*GPR_LOG_SEVERITY_DEBUG*/ NGX_LOG_DEBUG;
-
-    ngx_log_error(level, ngx_cycle->log, 0, "OTel/grpc: %s", args->message);
-}
-
 ngx_int_t initModule(ngx_conf_t* cf)
 {
     auto cmcf = (ngx_http_core_main_conf_t*)ngx_http_conf_get_module_main_conf(
@@ -533,7 +520,7 @@ ngx_int_t initModule(ngx_conf_t* cf)
 
     *h = onRequestEnd;
 
-    gpr_set_log_function(grpcLogHandler);
+    initGrpcLog();
 
     return NGX_OK;
 }
