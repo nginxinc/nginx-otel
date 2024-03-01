@@ -24,7 +24,8 @@ jobs:
       - name: Build module
         working-directory: build
         run: |
-          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs ..
+          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
+                -DNGX_OTEL_DEV=ON ..
           make -j 4
           strip ngx_otel_module.so
       - name: Archive module
@@ -75,11 +76,11 @@ jobs:
         working-directory: nginx
         run: |
           auto/configure --with-compat --with-debug --with-http_ssl_module \
-          --with-http_v2_module --with-http_v3_module
+                         --with-http_v2_module --with-http_v3_module
           make -j 4
       - name: Run tests
         working-directory: tests
         run: |
           PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \
-          TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
-          ${PWD}/../build/ngx_otel_module.so;" prove -v .
+              TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
+              ${PWD}/../build/ngx_otel_module.so;" prove -v .
