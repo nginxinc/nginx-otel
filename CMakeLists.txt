@@ -22,13 +22,12 @@ if(NGX_OTEL_FETCH_DEPS)
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc
         GIT_TAG        02384e39185f109bd299eb8482306229967dc970 # v1.46.7
-        GIT_SUBMODULES third_party/protobuf third_party/abseil-cpp
+        GIT_SUBMODULES third_party/protobuf third_party/abseil-cpp third_party/re2
         GIT_SHALLOW    ON)
 
     set(gRPC_USE_PROTO_LITE ON  CACHE INTERNAL "")
     set(gRPC_INSTALL        OFF CACHE INTERNAL "")
     set(gRPC_CARES_PROVIDER package CACHE INTERNAL "")
-    set(gRPC_RE2_PROVIDER   package CACHE INTERNAL "")
     set(gRPC_SSL_PROVIDER   package CACHE INTERNAL "")
     set(gRPC_ZLIB_PROVIDER  package CACHE INTERNAL "")
 
