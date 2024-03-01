@@ -6,8 +6,9 @@ set(NGX_OTEL_NGINX_BUILD_DIR ""
 set(NGX_OTEL_NGINX_DIR "${NGX_OTEL_NGINX_BUILD_DIR}/.."
     CACHE PATH "Nginx source dir")
 
-set(NGX_OTEL_FETCH_DEPS ON CACHE BOOL "Download dependencies")
-set(NGX_OTEL_PROTO_DIR  "" CACHE PATH "OTel proto files root")
+set(NGX_OTEL_FETCH_DEPS ON  CACHE BOOL "Download dependencies")
+set(NGX_OTEL_PROTO_DIR  ""  CACHE PATH "OTel proto files root")
+set(NGX_OTEL_DEV        OFF CACHE BOOL "Enforce compiler warnings")
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -99,7 +100,9 @@ add_custom_command(
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-Wall -Wtype-limits -Werror)
+if (NGX_OTEL_DEV)
+    add_compile_options(-Wall -Wtype-limits -Werror)
+endif()
 
 add_library(ngx_otel_module MODULE
     src/http_module.cpp
