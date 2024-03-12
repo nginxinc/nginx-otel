@@ -116,6 +116,10 @@ set_target_properties(ngx_otel_module PROPERTIES PREFIX "")
 # can't use OTel's WITH_ABSEIL until cmake 3.24, as it triggers find_package()
 target_compile_definitions(ngx_otel_module PRIVATE HAVE_ABSEIL)
 
+if (APPLE)
+    target_link_options(ngx_otel_module PRIVATE -undefined dynamic_lookup)
+endif()
+
 target_include_directories(ngx_otel_module PRIVATE
     ${NGX_OTEL_NGINX_BUILD_DIR}
     ${NGX_OTEL_NGINX_DIR}/src/core
