@@ -47,6 +47,9 @@ if(NGX_OTEL_FETCH_DEPS)
 
     FetchContent_MakeAvailable(grpc otelcpp)
 
+    # reconsider once https://github.com/grpc/grpc/issues/36023 is done
+    target_compile_definitions(grpc PRIVATE GRPC_NO_XDS GRPC_NO_RLS)
+
     set_property(DIRECTORY ${grpc_SOURCE_DIR}
                  PROPERTY EXCLUDE_FROM_ALL YES)
     set_property(DIRECTORY ${otelcpp_SOURCE_DIR}
