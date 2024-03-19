@@ -7,4 +7,5 @@ cmake -D NGX_OTEL_NGINX_BUILD_DIR=$NGX_OBJS \
       -D "CMAKE_C_FLAGS=$NGX_CC_OPT" \
       -D "CMAKE_CXX_FLAGS=$NGX_CC_OPT" \
       -D "CMAKE_MODULE_LINKER_FLAGS=$NGX_LD_OPT" \
+      $NGINX_OTEL_CMAKE_ADDITIONAL_OPTS \
       -S $ngx_addon_dir -B $NGX_OBJS/otel || exit 1
