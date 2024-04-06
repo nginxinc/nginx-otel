@@ -4,11 +4,14 @@ ngx_module_name=$ngx_addon_name
 ngx_module_incs=
 ngx_module_deps=" \
   $ngx_addon_dir/src/batch_exporter.hpp \
+  $ngx_addon_dir/src/grpc_log.hpp \
+  $ngx_addon_dir/src/ngx.hpp \
   $ngx_addon_dir/src/str_view.hpp \
   $ngx_addon_dir/src/trace_context.hpp \
   $ngx_addon_dir/src/trace_service_client.hpp \
 "
 ngx_module_srcs=" \
+  $ngx_addon_dir/src/grpc_log.cpp \
   $ngx_addon_dir/src/ngx_otel_module.cpp \
   objs/opentelemetry/proto/common/v1/common.pb.cc \
   objs/opentelemetry/proto/resource/v1/resource.pb.cc \
