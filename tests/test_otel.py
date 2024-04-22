@@ -1,4 +1,5 @@
 from binascii import hexlify
+from conftest import self_signed_cert
 import niquests
 import pytest
 import socket
@@ -9,7 +10,7 @@ from urllib.parse import urlparse
 import urllib3
 
 
-CERT_GEN = "self_signed_cert"
+CERT_GEN = self_signed_cert
 
 NGINX_CONFIG = """
 {{ test_globals }}
@@ -574,9 +575,9 @@ class TestOTelSpans:
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
-            ("X-Otel-Trace-Id", "span_list[idx - 1].trace_id", 1),
-            ("X-Otel-Span-Id", "span_list[idx - 1].span_id", 1),
-            ("X-Otel-Parent-Id", "span_list[idx - 1].parent_span_id", 1),
+            ("X-Otel-Trace-Id", "trace_id", 1),
+            ("X-Otel-Span-Id", "span_id", 1),
+            ("X-Otel-Parent-Id", "parent_span_id", 1),
             ("X-Otel-Parent-Sampled", "1", 1),
             ("X-Otel-Parent-Sampled", "0", 2),
         ],
@@ -591,7 +592,8 @@ class TestOTelSpans:
     def test_variables(
         self, http_ver, span_list, case_headers, name, value, idx, otel_mode
     ):
-        value = h_str(eval(value)) if "span_list" in value else value
+        if value.endswith("_id"):
+            value = h_str(getattr(span_list[idx - 1], value))
         if http_ver == 0:
             if "Parent" in name:
                 pytest.skip("no headers support")
@@ -627,26 +629,14 @@ class TestOTelSpans:
         + [
             (
                 "X-Otel-Traceparent",
-                [
-                    "00-",
-                    "span_list[idx - 1].trace_id",
-                    "-",
-                    "span_list[idx - 1].span_id",
-                    "-01",
-                ],
+                ["00-", "trace_id", "-", "span_id", "-01"],
                 7,
             ),
             ("X-Otel-Tracestate", None, 7),
             ("X-Otel-Parent-Id", None, 8),
             (
                 "X-Otel-Traceparent",
-                [
-                    "00-",
-                    "span_list[idx - 1].trace_id",
-                    "-",
-                    "span_list[idx - 1].span_id",
-                    "-01",
-                ],
+                ["00-", "trace_id", "-", "span_id", "-01"],
                 8,
             ),
             ("X-Otel-Tracestate", None, 8),
@@ -654,24 +644,14 @@ class TestOTelSpans:
         + [
             (
                 "X-Otel-Traceparent",
-                [
-                    "00-",
-                    "span_list[idx - 1].trace_id",
-                    "-",
-                    "span_list[idx - 1].span_id",
-                    "-01",
-                ],
+                ["00-", "trace_id", "-", "span_id", "-01"],
                 9,
             ),
             ("X-Otel-Tracestate", None, 9),
             ("X-Otel-Parent-Id", "b9c7c989f97918e1", 10),
             (
                 "X-Otel-Traceparent",
-                [
-                    "00-0af7651916cd43dd8448eb211c80319c-",
-                    "span_list[idx - 1].span_id",
-                    "-01",
-                ],
+                ["00-0af7651916cd43dd8448eb211c80319c-", "span_id", "-01"],
                 10,
             ),
             (
@@ -715,8 +695,10 @@ class TestOTelSpans:
         if http_ver == 0:
             pytest.skip("no headers support")
         if type(value) is list:
-            acc = ""
-            for _ in value:
-                acc += h_str(eval(_)) if "span_list" in _ else _
-            value = acc
+            value = "".join(
+                h_str(getattr(span_list[idx - 1], _))
+                if _.endswith("_id")
+                else _
+                for _ in value
+            )
         assert case_headers[idx].get(name) == value

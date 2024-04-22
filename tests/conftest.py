@@ -104,4 +104,4 @@ def nginx(testdir, nginx_config, certs, logger):
 @pytest.fixture(scope="module")
 def certs(request, testdir):
     if getattr(request.module, "CERT_GEN", None) is not None:
-        return eval(request.module.CERT_GEN)(testdir)
+        return request.module.CERT_GEN(testdir)
