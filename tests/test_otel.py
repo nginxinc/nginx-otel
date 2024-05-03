@@ -595,7 +595,7 @@ class TestOTelSpans:
         if value.endswith("_id"):
             value = h_str(getattr(span_list[idx - 1], value))
         if http_ver == 0:
-            if "Parent" in name:
+            if name.startswith("X-Otel-Parent-"):
                 pytest.skip("no headers support")
             assert len(value) == (16 if "Span-Id" in name else 32)
         else:

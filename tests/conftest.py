@@ -55,10 +55,9 @@ def nginx_config(request, testdir, logger):
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log debug;\n"
         + os.getenv("TEST_NGINX_GLOBALS", "")
     )
-    params[
-        "test_globals_http"
-    ] = f"root {testdir};\naccess_log {testdir}/access.log;\n" + os.getenv(
-        "TEST_NGINX_GLOBALS_HTTP", ""
+    params["test_globals_http"] = (
+        f"root {testdir};\naccess_log {testdir}/access.log;\n"
+        + os.getenv("TEST_NGINX_GLOBALS_HTTP", "")
     )
     params["test_globals_stream"] = os.getenv("TEST_NGINX_GLOBALS_STREAM", "")
     conf = tmpl.render(params)
