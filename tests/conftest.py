@@ -69,19 +69,19 @@ def nginx_config(request, testdir, logger):
 def nginx(testdir, nginx_config, certs, logger):
     logger.debug(CAPABILITIES)
     (testdir / "nginx.conf").write_text(nginx_config)
-    args = [
-        NGINX_BINARY,
-        "-p",
-        f"{testdir}",
-        "-c",
-        "nginx.conf",
-        "-e",
-        "error.log",
-    ]
     logger.info("Starting nginx...")
-    proc = subprocess.Popen(args)
-    logger.debug(f"path={NGINX_BINARY}")
-    logger.debug(f"args={' '.join(proc.args[1:])}")
+    proc = subprocess.Popen(
+        [
+            NGINX_BINARY,
+            "-p",
+            str(testdir),
+            "-c",
+            "nginx.conf",
+            "-e",
+            "error.log",
+        ]
+    )
+    logger.debug(f"args={' '.join(proc.args)}")
     logger.debug(f"pid={proc.pid}")
     while not (testdir / "nginx.pid").exists():
         time.sleep(0.1)
