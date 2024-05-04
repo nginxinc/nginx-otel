@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import urllib3
 
 
-CERT_GEN = self_signed_cert
+CERTS = [self_signed_cert, "localhost"]
 
 NGINX_CONFIG = """
 {{ test_globals }}

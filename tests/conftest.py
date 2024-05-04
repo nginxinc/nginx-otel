@@ -17,8 +17,7 @@ CAPABILITIES = subprocess.check_output(
 ).decode("utf-8")
 
 
-def self_signed_cert(test_dir):
-    name = "localhost"
+def self_signed_cert(test_dir, name):
     k = crypto.PKey()
     k.generate_key(crypto.TYPE_RSA, 2048)
     cert = crypto.X509()
@@ -66,7 +65,7 @@ def nginx_config(request, testdir, logger):
 
 
 @pytest.fixture(scope="module")
-def nginx(testdir, nginx_config, certs, logger):
+def nginx(testdir, nginx_config, _certs, logger):
     logger.debug(CAPABILITIES)
     (testdir / "nginx.conf").write_text(nginx_config)
     logger.info("Starting nginx...")
@@ -101,6 +100,7 @@ def nginx(testdir, nginx_config, certs, logger):
 
 
 @pytest.fixture(scope="module")
-def certs(request, testdir):
-    if getattr(request.module, "CERT_GEN", None) is not None:
-        return request.module.CERT_GEN(testdir)
+def _certs(request, testdir):
+    if getattr(request.module, "CERTS", None) is not None:
+        for _ in request.module.CERTS[1:]:
+            request.module.CERTS[0](testdir, _)
