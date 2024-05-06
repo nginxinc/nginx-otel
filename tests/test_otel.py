@@ -590,32 +590,32 @@ class TestOTelSpans:
             ),
         ],
         ids=[
-            "ignore-no traceparent-no headers",
-            "ignore-no tracestate-no headers",
-            "ignore-no parent id-trace headers",
-            "ignore-traceparent-trace headers",
-            "ignore-tracestate-trace headers",
+            "ignore-no traceparent-no context",
+            "ignore-no tracestate-no context",
+            "ignore-no parent id-with context",
+            "ignore-old traceparent-with context",
+            "ignore-old tracestate-with context",
         ]
         + [
-            "extract-no traceparent-no headers",
-            "extract-no tracestate-no headers",
-            "extract-parent id-trace headers",
-            "extract-traceparent-trace headers",
-            "extract-tracestate-trace headers",
+            "extract-no traceparent-no context",
+            "extract-no tracestate-no context",
+            "extract-old parent id-with context",
+            "extract-old traceparent-with context",
+            "extract-old tracestate-with context",
         ]
         + [
-            "inject-traceparent-no headers",
-            "inject-no tracestate-no headers",
-            "inject-no parent id-trace headers",
-            "inject-traceparent-trace headers",
-            "inject-tracestate-trace headers",
+            "inject-new traceparent-no context",
+            "inject-no tracestate-no context",
+            "inject-no parent id-with context",
+            "inject-new traceparent-with context",
+            "inject-no tracestate-with context",
         ]
         + [
-            "propagate-traceparent-no headers",
-            "propagate-no tracestate-no headers",
-            "propagate-parent id-trace headers",
-            "propagate-traceparent-trace headers",
-            "propagate-tracestate-trace headers",
+            "propagate-new traceparent-no context",
+            "propagate-no tracestate-no context",
+            "propagate-old parent id-with context",
+            "propagate-updated traceparent(new span id)-with context",
+            "propagate-old tracestat-with context",
         ],
     )
     def test_trace_context(
