@@ -615,7 +615,7 @@ class TestOTelSpans:
             "propagate-no tracestate-no context",
             "propagate-old parent id-with context",
             "propagate-updated traceparent(new span id)-with context",
-            "propagate-old tracestat-with context",
+            "propagate-old tracestate-with context",
         ],
     )
     def test_trace_context(
