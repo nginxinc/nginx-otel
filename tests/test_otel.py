@@ -364,17 +364,15 @@ class TestOTelGenerateSpans:
 class TestOTelSpans:
     @pytest.mark.parametrize(
         ("batch", "size"),
-        [(_, 10) for _ in range(3)],
-        ids=[f"batch {_}" for _ in range(3)],
+        [(0, 10), (1, 10), (2, 10)],
+        ids=["batch 0", "batch 1", "batch 2"],
     )
     def test_batch_size(self, http_ver, case_spans, batch, size, otel_mode):
         assert size == len(case_spans[batch][0].scope_spans[0].spans)
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
-        "batch",
-        [_ for _ in range(3)],
-        ids=[f"batch {_}" for _ in range(3)],
+        "batch", [0, 1, 2], ids=["batch 0", "batch 1", "batch 2"]
     )
     def test_service_name(self, http_ver, case_spans, batch, otel_mode):
         assert f"test_http{http_ver}" == span_attr(
