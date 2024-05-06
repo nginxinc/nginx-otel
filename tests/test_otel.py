@@ -118,10 +118,6 @@ def collect_headers(headers, conf):
     _headers[conf].append(headers)
 
 
-def h_str(bstr):
-    return hexlify(bstr).decode("utf-8")
-
-
 @pytest.fixture(scope="class")
 def _copy_spans(spans):
     yield
@@ -522,7 +518,7 @@ class TestOTelSpans:
         self, http_ver, span_list, case_headers, name, value, idx, otel_mode
     ):
         if value.endswith("_id"):
-            value = h_str(getattr(span_list[idx - 1], value))
+            value = hexlify(getattr(span_list[idx - 1], value)).decode("utf-8")
         if http_ver == 0:
             if name.startswith("X-Otel-Parent-"):
                 pytest.skip("no headers support")
@@ -626,7 +622,7 @@ class TestOTelSpans:
         if type(value) is list:
             value = "".join(
                 (
-                    h_str(getattr(span_list[idx - 1], _))
+                    hexlify(getattr(span_list[idx - 1], _)).decode("utf-8")
                     if _.endswith("_id")
                     else _
                 )
