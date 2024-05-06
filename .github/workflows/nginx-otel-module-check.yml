@@ -59,8 +59,8 @@ jobs:
         uses: robinraju/release-downloader@v1.10
         with:
           repository: open-telemetry/opentelemetry-collector-releases
-          tag: v0.99.0
-          fileName: otelcol_0.99.0_linux_amd64.tar.gz
+          tag: v0.100.0
+          fileName: otelcol_0.100.0_linux_amd64.tar.gz
           extract: true
       - name: Run tests
         working-directory: tests
