@@ -95,7 +95,7 @@ http {
 
 """
 
-trace_headers = {
+context = {
     "Traceparent": "00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01",
     "Tracestate": "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7",
 }
@@ -243,45 +243,23 @@ class TestOTelGenerateSpansSimpleClient:
     @pytest.mark.parametrize(
         ("url", "response"),
         [
-            pytest.param(
-                "https://127.0.0.1:8443/trace-off",
-                "TRACE-OFF",
-                id="trace-off",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/trace-on",
-                "TRACE-ON",
-                id="trace-on",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-ignore",
-                "TRACE-OFF",
-                id="context-ignore",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-extract",
-                "TRACE-OFF",
-                id="context-extract",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-inject",
-                "TRACE-OFF",
-                id="context-inject",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-propagate",
-                "TRACE-OFF",
-                id="context-propagate",
-            ),
+            ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/trace-on", "TRACE-ON"),
+            ("https://127.0.0.1:8443/context-ignore", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-extract", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-inject", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-propagate", "TRACE-OFF"),
         ]
-        + [
-            pytest.param(
-                "https://127.0.0.1:8443/trace-on",
-                "TRACE-ON",
-                id=f"bulk request {_}",
-            )
-            for _ in range(1, 26)
-        ],
+        + [("https://127.0.0.1:8443/trace-on", "TRACE-ON")] * 25,
+        ids=[
+            "trace-off",
+            "trace-on",
+            "context-ignore",
+            "context-extract",
+            "context-inject",
+            "context-propagate",
+        ]
+        + [f"bulk request {_}" for _ in range(1, 26)],
     )
     def test_do_request(self, simple_client, url, response):
         assert response == simple_client
@@ -346,82 +324,33 @@ class TestOTelGenerateSpans:
     @pytest.mark.parametrize(
         ("url", "headers", "response"),
         [
-            pytest.param(
-                "https://127.0.0.1:8443/trace-off",
-                None,
-                "TRACE-OFF",
-                id="trace-off",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/trace-on",
-                trace_headers,
-                "TRACE-ON",
-                id="trace-on with trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/trace-on",
-                None,
-                "TRACE-ON",
-                id="trace-on no trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-ignore",
-                None,
-                "TRACE-OFF",
-                id="context-ignore no trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-ignore",
-                trace_headers,
-                "TRACE-OFF",
-                id="context-ignore with trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-extract",
-                None,
-                "TRACE-OFF",
-                id="context-extract no trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-extract",
-                trace_headers,
-                "TRACE-OFF",
-                id="context-extract with trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-inject",
-                None,
-                "TRACE-OFF",
-                id="context-inject no trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-inject",
-                trace_headers,
-                "TRACE-OFF",
-                id="context-inject with trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-propagate",
-                None,
-                "TRACE-OFF",
-                id="context-propagate no trace headers",
-            ),
-            pytest.param(
-                "https://127.0.0.1:8443/context-propagate",
-                trace_headers,
-                "TRACE-OFF",
-                id="context-propagate with trace headers",
-            ),
+            ("https://127.0.0.1:8443/trace-off", None, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/trace-on", context, "TRACE-ON"),
+            ("https://127.0.0.1:8443/trace-on", None, "TRACE-ON"),
+            ("https://127.0.0.1:8443/context-ignore", None, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-ignore", context, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-extract", None, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-extract", context, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-inject", None, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-inject", context, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-propagate", None, "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-propagate", context, "TRACE-OFF"),
         ]
-        + [
-            pytest.param(
-                "https://127.0.0.1:8443/trace-on",
-                None,
-                "TRACE-ON",
-                id=f"bulk request {_}",
-            )
-            for _ in range(1, 21)
-        ],
+        + [("https://127.0.0.1:8443/trace-on", None, "TRACE-ON")] * 20,
+        ids=[
+            "trace-off",
+            "trace-on with context",
+            "trace-on no context",
+            "context-ignore no context",
+            "context-ignore with context",
+            "context-extract no context",
+            "context-extract with context",
+            "context-inject no context",
+            "context-inject with context",
+            "context-propagate no context",
+            "context-propagate with context",
+        ]
+        + [f"bulk request {_}" for _ in range(1, 21)],
     )
     def test_do_request(
         self, session, http_ver, otel_mode, url, headers, response, spans
@@ -696,9 +625,11 @@ class TestOTelSpans:
             pytest.skip("no headers support")
         if type(value) is list:
             value = "".join(
-                h_str(getattr(span_list[idx - 1], _))
-                if _.endswith("_id")
-                else _
+                (
+                    h_str(getattr(span_list[idx - 1], _))
+                    if _.endswith("_id")
+                    else _
+                )
                 for _ in value
             )
         assert case_headers[idx].get(name) == value
