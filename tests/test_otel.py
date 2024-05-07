@@ -344,9 +344,7 @@ class TestOTelSpans:
     )
     def test_service_name(self, http_ver, case_spans, batch, otel_mode):
         assert f"test_http{http_ver}" == span_attr(
-            case_spans[batch][0].resource,
-            "service.name",
-            "string_value",
+            case_spans[batch][0].resource, "service.name", "string_value"
         )
 
     @pytest.mark.depends(on=["test_batch_size"])
