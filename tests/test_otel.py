@@ -27,13 +27,13 @@ http {
     ssl_certificate localhost.crt;
 
     otel_exporter {
-        endpoint 127.0.0.1:{{ otel_port }};
+        endpoint 127.0.0.1:{{ port }};
         interval 1s;
         batch_size 10;
         batch_count 2;
     }
 
-    otel_service_name {{ otel_service }};
+    otel_service_name {{ name }};
     otel_trace on;
 
     server {
@@ -229,8 +229,8 @@ def simple_client(url, logger):
 @pytest.mark.parametrize(
     "nginx_config",
     [
-        {"otel_port": 4317, "otel_service": "test_http0", "mode": "ssl"},
-        {"otel_port": 8317, "otel_service": "test_http0", "mode": "ssl"},
+        {"port": 4317, "name": "test_http0", "mode": "ssl"},
+        {"port": 8317, "name": "test_http0", "mode": "ssl"},
     ],
     indirect=True,
     ids=["https 0.9-to mock", "https 0.9-to otelcol"],
@@ -266,44 +266,12 @@ class TestOTelGenerateSpansSimpleClient:
 @pytest.mark.parametrize(
     ("nginx_config", "http_ver", "otel_mode"),
     [
-        (
-            {"otel_port": 4317, "otel_service": "test_http1", "mode": "ssl"},
-            1,
-            0,
-        ),
-        (
-            {"otel_port": 8317, "otel_service": "test_http1", "mode": "ssl"},
-            1,
-            1,
-        ),
-        (
-            {
-                "otel_port": 4317,
-                "otel_service": "test_http2",
-                "mode": "ssl http2",
-            },
-            2,
-            0,
-        ),
-        (
-            {
-                "otel_port": 8317,
-                "otel_service": "test_http2",
-                "mode": "ssl http2",
-            },
-            2,
-            1,
-        ),
-        (
-            {"otel_port": 4317, "otel_service": "test_http3", "mode": "quic"},
-            3,
-            0,
-        ),
-        (
-            {"otel_port": 8317, "otel_service": "test_http3", "mode": "quic"},
-            3,
-            1,
-        ),
+        ({"port": 4317, "name": "test_http1", "mode": "ssl"}, 1, 0),
+        ({"port": 8317, "name": "test_http1", "mode": "ssl"}, 1, 1),
+        ({"port": 4317, "name": "test_http2", "mode": "ssl http2"}, 2, 0),
+        ({"port": 8317, "name": "test_http2", "mode": "ssl http2"}, 2, 1),
+        ({"port": 4317, "name": "test_http3", "mode": "quic"}, 3, 0),
+        ({"port": 8317, "name": "test_http3", "mode": "quic"}, 3, 1),
     ],
     indirect=["nginx_config"],
     ids=[
@@ -550,31 +518,19 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7", 6),
         ]
         + [
-            (
-                "X-Otel-Traceparent",
-                ["00-", "trace_id", "-", "span_id", "-01"],
-                7,
-            ),
+            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 7),
             ("X-Otel-Tracestate", None, 7),
             ("X-Otel-Parent-Id", None, 8),
-            (
-                "X-Otel-Traceparent",
-                ["00-", "trace_id", "-", "span_id", "-01"],
-                8,
-            ),
+            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 8),
             ("X-Otel-Tracestate", None, 8),
         ]
         + [
-            (
-                "X-Otel-Traceparent",
-                ["00-", "trace_id", "-", "span_id", "-01"],
-                9,
-            ),
+            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 9),
             ("X-Otel-Tracestate", None, 9),
             ("X-Otel-Parent-Id", "b9c7c989f97918e1", 10),
             (
                 "X-Otel-Traceparent",
-                ["00-0af7651916cd43dd8448eb211c80319c-", "span_id", "-01"],
+                "00-0af7651916cd43dd8448eb211c80319c-span_id-01",
                 10,
             ),
             (
@@ -617,13 +573,13 @@ class TestOTelSpans:
     ):
         if http_ver == 0:
             pytest.skip("no headers support")
-        if type(value) is list:
-            value = "".join(
+        if type(value) is str:
+            value = "-".join(
                 (
                     hexlify(getattr(span_list[idx - 1], _)).decode("utf-8")
                     if _.endswith("_id")
                     else _
                 )
-                for _ in value
+                for _ in value.split("-")
             )
         assert case_headers[idx].get(name) == value
