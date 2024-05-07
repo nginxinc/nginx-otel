@@ -381,25 +381,25 @@ class TestOTelSpans:
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
-        ("attr_name", "attr_value", "attr_type"),
+        ("name", "atype", "value"),
         [
-            ("http.method", "GET", "string_value"),
-            ("http.target", "/trace-on", "string_value"),
-            ("http.route", "/trace-on", "string_value"),
-            ("http.scheme", "https", "string_value"),
-            ("http.flavor", [None, "1.1", "2.0", "3.0"], "string_value"),
+            ("http.method", "string_value", "GET"),
+            ("http.target", "string_value", "/trace-on"),
+            ("http.route", "string_value", "/trace-on"),
+            ("http.scheme", "string_value", "https"),
+            ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
             (
                 "http.user_agent",
-                [None] + [f"niquests/{niquests.__version__}"] * 3,
                 "string_value",
+                [None] + [f"niquests/{niquests.__version__}"] * 3,
             ),
-            ("http.request_content_length", 0, "int_value"),
-            ("http.response_content_length", 8, "int_value"),
-            ("http.status_code", 200, "int_value"),
-            ("net.host.name", "localhost", "string_value"),
-            ("net.host.port", 8443, "int_value"),
-            ("net.sock.peer.addr", "127.0.0.1", "string_value"),
-            ("net.sock.peer.port", range(1024, 65536), "int_value"),
+            ("http.request_content_length", "int_value", 0),
+            ("http.response_content_length", "int_value", 8),
+            ("http.status_code", "int_value", 200),
+            ("net.host.name", "string_value", "localhost"),
+            ("net.host.port", "int_value", 8443),
+            ("net.sock.peer.addr", "string_value", "127.0.0.1"),
+            ("net.sock.peer.port", "int_value", range(1024, 65536)),
         ],
         ids=[
             "http.method",
@@ -417,32 +417,29 @@ class TestOTelSpans:
             "net.sock.peer.port",
         ],
     )
-    def test_metrics(
-        self, http_ver, span_list, attr_name, attr_value, attr_type, otel_mode
-    ):
-        value = span_attr(span_list[0], attr_name, attr_type)
-        if attr_name in ["http.flavor", "http.user_agent"]:
-            attr_value = attr_value[http_ver]
-        if attr_name == "net.sock.peer.port":
-            assert value in attr_value
+    def test_metrics(self, http_ver, span_list, name, atype, value, otel_mode):
+        _ = span_attr(span_list[0], name, atype)
+        if name == "net.sock.peer.port":
+            assert _ in value
         else:
-            assert value == attr_value
+            value = value[http_ver] if type(value) is list else value
+            assert _ == value
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
-        ("attr_name", "attr_value", "attr_type"),
+        ("name", "atype", "value"),
         [
-            ("http.request.completion", "OK", "string_value"),
-            ("http.response.header.content.type", "text/plain", "array_value"),
+            ("http.request.completion", "string_value", "OK"),
+            ("http.response.header.content.type", "array_value", "text/plain"),
             (
                 "http.request",
+                "string_value",
                 [
                     "GET /trace-on",
                     "GET /trace-on HTTP/1.1",
                     "GET /trace-on HTTP/2.0",
                     "GET /trace-on HTTP/3.0",
                 ],
-                "string_value",
             ),
         ],
         ids=[
@@ -452,14 +449,11 @@ class TestOTelSpans:
         ],
     )
     def test_custom_metrics(
-        self, http_ver, span_list, attr_name, attr_value, attr_type, otel_mode
+        self, http_ver, span_list, name, atype, value, otel_mode
     ):
-        value = span_attr(span_list[0], attr_name, attr_type)
-        if attr_type == "array_value":
-            value = value.values[0].string_value
-        if type(attr_value) is list:
-            attr_value = attr_value[http_ver]
-        assert attr_value == value
+        _ = span_attr(span_list[0], name, atype)
+        _ = _.values[0].string_value if atype == "array_value" else _
+        assert _ == (value[http_ver] if type(value) is list else value)
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
@@ -488,12 +482,11 @@ class TestOTelSpans:
     def test_variables(
         self, http_ver, span_list, case_headers, name, value, idx, otel_mode
     ):
-        if value.endswith("_id"):
-            value = hexlify(getattr(span_list[idx - 1], value)).decode("utf-8")
         if http_ver == 0:
             pytest.skip("no headers support")
-        else:
-            assert case_headers[idx].get(name, "") == value
+        if value.endswith("_id"):
+            value = hexlify(getattr(span_list[idx - 1], value)).decode("utf-8")
+        assert case_headers[idx].get(name, "") == value
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
