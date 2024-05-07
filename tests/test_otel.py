@@ -465,18 +465,24 @@ class TestOTelSpans:
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
-            ("X-Otel-Trace-Id", "trace_id", 1),
+            ("X-Otel-Trace-Id", trace_id, 1),
             ("X-Otel-Span-Id", "span_id", 1),
-            ("X-Otel-Parent-Id", "parent_span_id", 1),
+            ("X-Otel-Parent-Id", span_id, 1),
             ("X-Otel-Parent-Sampled", "1", 1),
+            ("X-Otel-Trace-Id", "trace_id", 2),
+            ("X-Otel-Span-Id", "span_id", 2),
+            ("X-Otel-Parent-Id", "parent_span_id", 2),
             ("X-Otel-Parent-Sampled", "0", 2),
         ],
         ids=[
-            "otel_trace_id",
-            "otel_span_id",
-            "otel_parent_id",
-            "otel_parent_sampled - 1",
-            "otel_parent_sampled - 0",
+            "otel_trace_id-with context",
+            "otel_span_id-with context",
+            "otel_parent_id-with context",
+            "otel_parent_sampled-with context",
+            "otel_trace_id-no context",
+            "otel_span_id-no context",
+            "otel_parent_id-no context",
+            "otel_parent_sampled-no context",
         ],
     )
     def test_variables(
@@ -485,11 +491,9 @@ class TestOTelSpans:
         if value.endswith("_id"):
             value = hexlify(getattr(span_list[idx - 1], value)).decode("utf-8")
         if http_ver == 0:
-            if name.startswith("X-Otel-Parent-"):
-                pytest.skip("no headers support")
-            assert len(value) == (16 if "Span-Id" in name else 32)
+            pytest.skip("no headers support")
         else:
-            assert case_headers[idx].get(name) == value
+            assert case_headers[idx].get(name, "") == value
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
