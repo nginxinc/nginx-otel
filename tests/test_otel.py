@@ -95,8 +95,9 @@ http {
 
 """
 
+(trace_id, span_id) = ("0af7651916cd43dd8448eb211c80319c", "b9c7c989f97918e1")
 context = {
-    "Traceparent": "00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01",
+    "Traceparent": f"00-{trace_id}-{span_id}-01",
     "Tracestate": "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7",
 }
 
@@ -497,23 +498,15 @@ class TestOTelSpans:
             ("X-Otel-Traceparent", None, 3),
             ("X-Otel-Tracestate", None, 3),
             ("X-Otel-Parent-Id", None, 4),
-            (
-                "X-Otel-Traceparent",
-                "00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01",
-                4,
-            ),
-            ("X-Otel-Tracestate", "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7", 4),
+            ("X-Otel-Traceparent", context["Traceparent"], 4),
+            ("X-Otel-Tracestate", context["Tracestate"], 4),
         ]
         + [
             ("X-Otel-Traceparent", None, 5),
             ("X-Otel-Tracestate", None, 5),
-            ("X-Otel-Parent-Id", "b9c7c989f97918e1", 6),
-            (
-                "X-Otel-Traceparent",
-                "00-0af7651916cd43dd8448eb211c80319c-b9c7c989f97918e1-01",
-                6,
-            ),
-            ("X-Otel-Tracestate", "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7", 6),
+            ("X-Otel-Parent-Id", span_id, 6),
+            ("X-Otel-Traceparent", context["Traceparent"], 6),
+            ("X-Otel-Tracestate", context["Tracestate"], 6),
         ]
         + [
             ("X-Otel-Traceparent", "00-trace_id-span_id-01", 7),
@@ -525,17 +518,9 @@ class TestOTelSpans:
         + [
             ("X-Otel-Traceparent", "00-trace_id-span_id-01", 9),
             ("X-Otel-Tracestate", None, 9),
-            ("X-Otel-Parent-Id", "b9c7c989f97918e1", 10),
-            (
-                "X-Otel-Traceparent",
-                "00-0af7651916cd43dd8448eb211c80319c-span_id-01",
-                10,
-            ),
-            (
-                "X-Otel-Tracestate",
-                "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7",
-                10,
-            ),
+            ("X-Otel-Parent-Id", span_id, 10),
+            ("X-Otel-Traceparent", f"00-{trace_id}-span_id-01", 10),
+            ("X-Otel-Tracestate", context["Tracestate"], 10),
         ],
         ids=[
             "ignore-no traceparent-no context",
