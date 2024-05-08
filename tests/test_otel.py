@@ -349,6 +349,16 @@ class TestOTelSpans:
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
+        ("name", "size"),
+        [("trace_id", 32), ("span_id", 16)],
+        ids=["trace_id", "span_id"],
+    )
+    def test_id_size(self, http_ver, span_list, name, size, otel_mode):
+        for _ in span_list:
+            assert size == len(hexlify(getattr(_, name)).decode("utf-8"))
+
+    @pytest.mark.depends(on=["test_batch_size"])
+    @pytest.mark.parametrize(
         ("location", "span_name", "idx"),
         [
             ("/trace-on", "default_location", 0),
