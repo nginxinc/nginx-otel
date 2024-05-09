@@ -273,13 +273,13 @@ class TestOTelGenerateSpans:
     def test_do_request(
         self, logger, session, http_ver, otel_mode, url, headers, response
     ):
-        if http_ver:
+        if http_ver == 0:
+            assert response == simple_client(url, logger)
+        else:
             r = session.get(url, headers=headers, verify=False)
             collect_headers(r.headers, f"{http_ver}{otel_mode}")
             assert r.status_code == 200
             assert r.text == response
-        else:
-            assert response == simple_client(url, logger)
 
 
 @pytest.mark.parametrize(
