@@ -136,9 +136,10 @@ def simple_client(url, logger):
             with ctx.wrap_socket(
                 sock, server_hostname=parsed.hostname
             ) as ssock:
-                return do_get(ssock, parsed.path)
+                _ = do_get(ssock, parsed.path)
         else:
-            return do_get(sock, parsed.path)
+            _ = do_get(sock, parsed.path)
+    return _
 
 
 @pytest.fixture()
