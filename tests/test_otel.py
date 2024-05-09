@@ -295,7 +295,6 @@ class TestOTelSpans:
     def test_batch_size(self, http_ver, case_spans, batch, size, otel_mode):
         assert size == len(case_spans[batch][0].scope_spans[0].spans)
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         "batch", [0, 1, 2], ids=["batch 0", "batch 1", "batch 2"]
     )
@@ -304,13 +303,11 @@ class TestOTelSpans:
             case_spans[batch][0].resource, "service.name", "string_value"
         )
 
-    @pytest.mark.depends(on=["test_batch_size"])
     def test_trace_off(self, http_ver, span_list, otel_mode):
         assert "/trace-off" not in [
             span_attr(_, "http.target", "string_value") for _ in span_list
         ]
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("name", "size"),
         [("trace_id", 32), ("span_id", 16)],
@@ -320,7 +317,6 @@ class TestOTelSpans:
         for _ in span_list:
             assert size == len(hexlify(getattr(_, name)).decode("utf-8"))
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("path", "span_name", "idx"),
         [
@@ -344,7 +340,6 @@ class TestOTelSpans:
         assert span_name == span_list[idx].name
         assert path == span_attr(span_list[idx], "http.target", "string_value")
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -390,7 +385,6 @@ class TestOTelSpans:
             value = value[http_ver] if type(value) is list else value
             assert _ == value
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -420,7 +414,6 @@ class TestOTelSpans:
         _ = _.values[0].string_value if atype == "array_value" else _
         assert _ == (value[http_ver] if type(value) is list else value)
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
@@ -453,7 +446,6 @@ class TestOTelSpans:
             value = hexlify(getattr(span_list[idx - 2], value)).decode("utf-8")
         assert case_headers[idx].get(name, "") == value
 
-    @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [

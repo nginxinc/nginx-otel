@@ -1,5 +1,4 @@
 pytest==8.2.0
-pytest-depends==1.0.1
 jinja2==3.1.4
 pyopenssl==24.1.0
 niquests==3.6.3
