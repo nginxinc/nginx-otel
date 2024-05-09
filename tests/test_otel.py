@@ -101,9 +101,6 @@ context = {
     "Tracestate": "congo=ucfJifl5GOE,rojo=00f067aa0ba902b7",
 }
 
-# Spans
-_spans = []
-
 # Headers from responses
 _headers = {}
 
@@ -119,17 +116,35 @@ def collect_headers(headers, conf):
     _headers[conf].append(headers)
 
 
-@pytest.fixture(scope="class")
-def _copy_spans(spans):
-    yield
-    time.sleep(3)  # wait for the last batch
-    _spans.extend(spans)
+def simple_client(url, logger):
+    def do_get(sock, path):
+        http_send = f"GET {path}\n".encode()
+        logger.debug(f"{http_send=}")
+        sock.sendall(http_send)
+        http_recv = sock.recv(1024)
+        logger.debug(f"{http_recv=}")
+        return http_recv.decode("utf-8")
+
+    parsed = urlparse(url)
+    _ = 8443 if parsed.scheme == "https" else 8080
+    port = parsed.port if parsed.port is not None else _
+    with socket.create_connection((parsed.hostname, port)) as sock:
+        if parsed.scheme == "https":
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with ctx.wrap_socket(
+                sock, server_hostname=parsed.hostname
+            ) as ssock:
+                return do_get(ssock, parsed.path)
+        else:
+            return do_get(sock, parsed.path)
 
 
 @pytest.fixture()
-def case_spans(http_ver, otel_mode):
+def case_spans(spans, http_ver, otel_mode):
     _ = 6 * http_ver + 3 * otel_mode
-    return _spans[_ : _ + 3]
+    return spans[_ : _ + 3]
 
 
 @pytest.fixture()
@@ -199,74 +214,12 @@ def session(http_ver, url):
         yield s
 
 
-@pytest.fixture()
-def simple_client(url, logger):
-    def do_get(sock, path):
-        http_send = f"GET {path}\n".encode()
-        logger.debug(f"{http_send=}")
-        sock.sendall(http_send)
-        http_recv = sock.recv(1024)
-        logger.debug(f"{http_recv=}")
-        return http_recv.decode("utf-8")
-
-    parsed = urlparse(url)
-    _ = 8443 if parsed.scheme == "https" else 8080
-    port = parsed.port if parsed.port is not None else _
-    with socket.create_connection((parsed.hostname, port)) as sock:
-        if parsed.scheme == "https":
-            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            with ctx.wrap_socket(
-                sock, server_hostname=parsed.hostname
-            ) as ssock:
-                yield do_get(ssock, parsed.path)
-        else:
-            yield do_get(sock, parsed.path)
-
-
 @pytest.mark.usefixtures("_otelcollector", "_otelcol", "nginx")
-@pytest.mark.order(1)
-@pytest.mark.parametrize(
-    "nginx_config",
-    [
-        {"port": 4317, "name": "test_http0", "mode": "ssl"},
-        {"port": 8317, "name": "test_http0", "mode": "ssl"},
-    ],
-    indirect=True,
-    ids=["https 0.9-to mock", "https 0.9-to otelcol"],
-)
-class TestOTelGenerateSpansSimpleClient:
-    @pytest.mark.parametrize(
-        ("url", "response"),
-        [
-            ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/trace-on", "TRACE-ON"),
-            ("https://127.0.0.1:8443/context-ignore", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-extract", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-inject", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-propagate", "TRACE-OFF"),
-        ]
-        + [("https://127.0.0.1:8443/trace-on", "TRACE-ON")] * 25,
-        ids=[
-            "trace-off",
-            "trace-on",
-            "context-ignore",
-            "context-extract",
-            "context-inject",
-            "context-propagate",
-        ]
-        + [f"trace-on bulk request {_}" for _ in range(1, 26)],
-    )
-    def test_do_request(self, simple_client, url, response):
-        assert response == simple_client
-
-
-@pytest.mark.usefixtures("_otelcollector", "_otelcol", "nginx", "_copy_spans")
-@pytest.mark.order(2)
 @pytest.mark.parametrize(
     ("nginx_config", "http_ver", "otel_mode"),
     [
+        ({"port": 4317, "name": "test_http0", "mode": "ssl"}, 0, 0),
+        ({"port": 8317, "name": "test_http0", "mode": "ssl"}, 0, 1),
         ({"port": 4317, "name": "test_http1", "mode": "ssl"}, 1, 0),
         ({"port": 8317, "name": "test_http1", "mode": "ssl"}, 1, 1),
         ({"port": 4317, "name": "test_http2", "mode": "ssl http2"}, 2, 0),
@@ -276,6 +229,8 @@ class TestOTelGenerateSpansSimpleClient:
     ],
     indirect=["nginx_config"],
     ids=[
+        "https 0.9-to mock",
+        "https 0.9-to otelcol",
         "https-to mock",
         "https-to otelcol",
         "http2-to mock",
@@ -286,6 +241,10 @@ class TestOTelGenerateSpansSimpleClient:
     scope="module",
 )
 class TestOTelGenerateSpans:
+    @classmethod
+    def teardown_class(cls):
+        time.sleep(3)  # wait for sending the last batch to collector
+
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "with context"]
     )
@@ -311,12 +270,15 @@ class TestOTelGenerateSpans:
         + [f"trace-on bulk request {_}" for _ in range(1, 11)],
     )
     def test_do_request(
-        self, session, http_ver, otel_mode, url, headers, response, spans
+        self, logger, session, http_ver, otel_mode, url, headers, response
     ):
-        r = session.get(url, headers=headers, verify=False)
-        collect_headers(r.headers, f"{http_ver}{otel_mode}")
-        assert r.status_code == 200
-        assert r.text == response
+        if http_ver:
+            r = session.get(url, headers=headers, verify=False)
+            collect_headers(r.headers, f"{http_ver}{otel_mode}")
+            assert r.status_code == 200
+            assert r.text == response
+        else:
+            assert response == simple_client(url, logger)
 
 
 @pytest.mark.parametrize(
@@ -359,7 +321,7 @@ class TestOTelSpans:
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
-        ("location", "span_name", "idx"),
+        ("path", "span_name", "idx"),
         [
             ("/trace-on", "default_location", 0),
             ("/context-ignore", "context_ignore", 2),
@@ -376,11 +338,10 @@ class TestOTelSpans:
         ],
     )
     def test_span_name(
-        self, http_ver, span_list, location, span_name, idx, logger, otel_mode
+        self, http_ver, span_list, path, span_name, idx, logger, otel_mode
     ):
-        span = span_list[idx if http_ver else idx // 2]
-        assert span_name == span.name
-        assert location == span_attr(span, "http.target", "string_value")
+        assert span_name == span_list[idx].name
+        assert path == span_attr(span_list[idx], "http.target", "string_value")
 
     @pytest.mark.depends(on=["test_batch_size"])
     @pytest.mark.parametrize(
