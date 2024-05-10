@@ -186,11 +186,7 @@ service:
     )
     logger.info("Starting otelcol at 127.0.0.1:8317...")
     proc = subprocess.Popen(
-        [
-            "../otelcol",
-            "--config",
-            testdir / "otel-config.yaml",
-        ]
+        ["../otelcol", "--config", testdir / "otel-config.yaml"]
     )
     if proc.poll() is not None:
         raise subprocess.SubprocessError("Can't start otelcol")
