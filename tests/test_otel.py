@@ -248,23 +248,23 @@ class TestOTelGenerateSpans:
     @pytest.mark.parametrize(
         ("url", "response"),
         [
-            ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
             ("https://127.0.0.1:8443/trace-on", "TRACE-ON"),
             ("https://127.0.0.1:8443/context-ignore", "TRACE-OFF"),
             ("https://127.0.0.1:8443/context-extract", "TRACE-OFF"),
             ("https://127.0.0.1:8443/context-inject", "TRACE-OFF"),
             ("https://127.0.0.1:8443/context-propagate", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
         ]
         + [("https://127.0.0.1:8443/trace-on", "TRACE-ON")] * 10,
         ids=[
-            "trace-off",
             "trace-on",
             "context-ignore",
             "context-extract",
             "context-inject",
             "context-propagate",
+            "trace-off",
         ]
-        + [f"trace-on bulk request {i}" for i in range(1, 11)],
+        + ["trace-on bulk request"] * 10,
     )
     def test_do_request(
         self, logger, session, http_ver, otel_mode, url, headers, response
@@ -413,14 +413,14 @@ class TestOTelSpans:
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
-            ("X-Otel-Trace-Id", "trace_id", 2),
-            ("X-Otel-Span-Id", "span_id", 2),
-            ("X-Otel-Parent-Id", None, 2),
-            ("X-Otel-Parent-Sampled", "0", 2),
-            ("X-Otel-Trace-Id", trace_id, 3),
-            ("X-Otel-Span-Id", "span_id", 3),
-            ("X-Otel-Parent-Id", span_id, 3),
-            ("X-Otel-Parent-Sampled", "1", 3),
+            ("X-Otel-Trace-Id", "trace_id", 0),
+            ("X-Otel-Span-Id", "span_id", 0),
+            ("X-Otel-Parent-Id", None, 0),
+            ("X-Otel-Parent-Sampled", "0", 0),
+            ("X-Otel-Trace-Id", trace_id, 1),
+            ("X-Otel-Span-Id", "span_id", 1),
+            ("X-Otel-Parent-Id", span_id, 1),
+            ("X-Otel-Parent-Sampled", "1", 1),
         ],
         ids=[
             "otel_trace_id-no context",
@@ -439,38 +439,38 @@ class TestOTelSpans:
         if http_ver == 0:
             pytest.skip("no headers support")
         if type(value) is str and value in ["trace_id", "span_id"]:
-            value = hexlify(getattr(span_list[idx - 2], value)).decode("utf-8")
+            value = hexlify(getattr(span_list[idx], value)).decode("utf-8")
         assert case_headers[idx].get(name) == value
 
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
+            ("X-Otel-Traceparent", None, 2),
+            ("X-Otel-Tracestate", None, 2),
+            ("X-Otel-Parent-Id", None, 3),
+            ("X-Otel-Traceparent", context["Traceparent"], 3),
+            ("X-Otel-Tracestate", context["Tracestate"], 3),
+        ]
+        + [
             ("X-Otel-Traceparent", None, 4),
             ("X-Otel-Tracestate", None, 4),
-            ("X-Otel-Parent-Id", None, 5),
+            ("X-Otel-Parent-Id", span_id, 5),
             ("X-Otel-Traceparent", context["Traceparent"], 5),
             ("X-Otel-Tracestate", context["Tracestate"], 5),
         ]
         + [
-            ("X-Otel-Traceparent", None, 6),
+            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 6),
             ("X-Otel-Tracestate", None, 6),
-            ("X-Otel-Parent-Id", span_id, 7),
-            ("X-Otel-Traceparent", context["Traceparent"], 7),
-            ("X-Otel-Tracestate", context["Tracestate"], 7),
+            ("X-Otel-Parent-Id", None, 7),
+            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 7),
+            ("X-Otel-Tracestate", None, 7),
         ]
         + [
             ("X-Otel-Traceparent", "00-trace_id-span_id-01", 8),
             ("X-Otel-Tracestate", None, 8),
-            ("X-Otel-Parent-Id", None, 9),
-            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 9),
-            ("X-Otel-Tracestate", None, 9),
-        ]
-        + [
-            ("X-Otel-Traceparent", "00-trace_id-span_id-01", 10),
-            ("X-Otel-Tracestate", None, 10),
-            ("X-Otel-Parent-Id", span_id, 11),
-            ("X-Otel-Traceparent", f"00-{trace_id}-span_id-01", 11),
-            ("X-Otel-Tracestate", context["Tracestate"], 11),
+            ("X-Otel-Parent-Id", span_id, 9),
+            ("X-Otel-Traceparent", f"00-{trace_id}-span_id-01", 9),
+            ("X-Otel-Tracestate", context["Tracestate"], 9),
         ],
         ids=[
             "ignore-no traceparent-no context",
@@ -509,7 +509,7 @@ class TestOTelSpans:
         if type(value) is str:
             value = "-".join(
                 (
-                    hexlify(getattr(span_list[idx - 2], v)).decode("utf-8")
+                    hexlify(getattr(span_list[idx], v)).decode("utf-8")
                     if v in ["trace_id", "span_id"]
                     else v
                 )
