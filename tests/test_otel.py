@@ -415,7 +415,7 @@ class TestOTelSpans:
         [
             ("X-Otel-Trace-Id", "trace_id", 2),
             ("X-Otel-Span-Id", "span_id", 2),
-            ("X-Otel-Parent-Id", "parent_span_id", 2),
+            ("X-Otel-Parent-Id", None, 2),
             ("X-Otel-Parent-Sampled", "0", 2),
             ("X-Otel-Trace-Id", trace_id, 3),
             ("X-Otel-Span-Id", "span_id", 3),
@@ -425,12 +425,12 @@ class TestOTelSpans:
         ids=[
             "otel_trace_id-no context",
             "otel_span_id-no context",
-            "otel_parent_id-no context",
-            "otel_parent_sampled-no context",
+            "no otel_parent_id-no context",
+            "otel_parent_sampled is 0-no context",
             "otel_trace_id-with context",
             "otel_span_id-with context",
             "otel_parent_id-with context",
-            "otel_parent_sampled-with context",
+            "otel_parent_sampled is 1-with context",
         ],
     )
     def test_variables(
@@ -438,9 +438,9 @@ class TestOTelSpans:
     ):
         if http_ver == 0:
             pytest.skip("no headers support")
-        if value.endswith("_id"):
+        if type(value) is str and value.endswith("_id"):
             value = hexlify(getattr(span_list[idx - 2], value)).decode("utf-8")
-        assert case_headers[idx].get(name, "") == value
+        assert case_headers[idx].get(name) == value
 
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
