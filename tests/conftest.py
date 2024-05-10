@@ -11,9 +11,9 @@ pytest_plugins = [
     "otelcol_fixtures",
 ]
 
-NGINX_BINARY = os.getenv("TEST_NGINX_BINARY", "../nginx/objs/nginx")
+NGINX = os.getenv("TEST_NGINX_BINARY", "../nginx/objs/nginx")
 CAPABILITIES = subprocess.check_output(
-    [NGINX_BINARY, "-V"], stderr=subprocess.STDOUT
+    [NGINX, "-V"], stderr=subprocess.STDOUT
 ).decode("utf-8")
 
 
@@ -70,15 +70,7 @@ def nginx(testdir, nginx_config, _certs, logger):
     (testdir / "nginx.conf").write_text(nginx_config)
     logger.info("Starting nginx...")
     proc = subprocess.Popen(
-        [
-            NGINX_BINARY,
-            "-p",
-            str(testdir),
-            "-c",
-            "nginx.conf",
-            "-e",
-            "error.log",
-        ]
+        [NGINX, "-p", str(testdir), "-c", "nginx.conf", "-e", "error.log"]
     )
     logger.debug(f"args={' '.join(proc.args)}")
     logger.debug(f"pid={proc.pid}")
