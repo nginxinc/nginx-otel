@@ -106,7 +106,7 @@ _headers = {}
 
 
 def span_attr(span, attr, atype):
-    for value in (_.value for _ in span.attributes if _.key == attr):
+    for value in (a.value for a in span.attributes if a.key == attr):
         return getattr(value, atype)
 
 
@@ -126,8 +126,8 @@ def simple_client(url, logger):
         return http_recv.decode("utf-8")
 
     parsed = urlparse(url)
-    _ = 8443 if parsed.scheme == "https" else 8080
-    port = parsed.port if parsed.port is not None else _
+    port = 8443 if parsed.scheme == "https" else 8080
+    port = parsed.port if parsed.port is not None else port
     with socket.create_connection((parsed.hostname, port)) as sock:
         if parsed.scheme == "https":
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -136,16 +136,16 @@ def simple_client(url, logger):
             with ctx.wrap_socket(
                 sock, server_hostname=parsed.hostname
             ) as ssock:
-                _ = do_get(ssock, parsed.path)
+                recv = do_get(ssock, parsed.path)
         else:
-            _ = do_get(sock, parsed.path)
-    return _
+            recv = do_get(sock, parsed.path)
+    return recv
 
 
 @pytest.fixture()
 def case_spans(spans, http_ver, otel_mode):
-    _ = 6 * http_ver + 3 * otel_mode
-    return spans[_ : _ + 3]
+    pos = 6 * http_ver + 3 * otel_mode
+    return spans[pos : pos + 3]
 
 
 @pytest.fixture()
@@ -268,7 +268,7 @@ class TestOTelGenerateSpans:
             "context-inject",
             "context-propagate",
         ]
-        + [f"trace-on bulk request {_}" for _ in range(1, 11)],
+        + [f"trace-on bulk request {i}" for i in range(1, 11)],
     )
     def test_do_request(
         self, logger, session, http_ver, otel_mode, url, headers, response
@@ -276,10 +276,10 @@ class TestOTelGenerateSpans:
         if http_ver == 0:
             assert response == simple_client(url, logger)
         else:
-            r = session.get(url, headers=headers, verify=False)
-            collect_headers(r.headers, f"{http_ver}{otel_mode}")
-            assert r.status_code == 200
-            assert r.text == response
+            resp = session.get(url, headers=headers, verify=False)
+            collect_headers(resp.headers, f"{http_ver}{otel_mode}")
+            assert resp.status_code == 200
+            assert resp.text == response
 
 
 @pytest.mark.parametrize(
@@ -305,7 +305,7 @@ class TestOTelSpans:
 
     def test_trace_off(self, http_ver, span_list, otel_mode):
         assert "/trace-off" not in [
-            span_attr(_, "http.target", "string_value") for _ in span_list
+            span_attr(s, "http.target", "string_value") for s in span_list
         ]
 
     @pytest.mark.parametrize(
@@ -314,8 +314,8 @@ class TestOTelSpans:
         ids=["trace_id", "span_id"],
     )
     def test_id_size(self, http_ver, span_list, name, size, otel_mode):
-        for _ in span_list:
-            assert size == len(hexlify(getattr(_, name)).decode("utf-8"))
+        for s in span_list:
+            assert size == len(hexlify(getattr(s, name)).decode("utf-8"))
 
     @pytest.mark.parametrize(
         ("path", "span_name", "idx"),
@@ -378,12 +378,12 @@ class TestOTelSpans:
         ],
     )
     def test_metrics(self, http_ver, span_list, name, atype, value, otel_mode):
-        _ = span_attr(span_list[0], name, atype)
+        v = span_attr(span_list[0], name, atype)
         if name == "net.sock.peer.port":
-            assert _ in value
+            assert v in value
         else:
             value = value[http_ver] if type(value) is list else value
-            assert _ == value
+            assert v == value
 
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
@@ -410,9 +410,9 @@ class TestOTelSpans:
     def test_custom_metrics(
         self, http_ver, span_list, name, atype, value, otel_mode
     ):
-        _ = span_attr(span_list[0], name, atype)
-        _ = _.values[0].string_value if atype == "array_value" else _
-        assert _ == (value[http_ver] if type(value) is list else value)
+        v = span_attr(span_list[0], name, atype)
+        v = v.values[0].string_value if atype == "array_value" else v
+        assert v == (value[http_ver] if type(value) is list else value)
 
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
@@ -513,10 +513,10 @@ class TestOTelSpans:
         if type(value) is str:
             value = "-".join(
                 (
-                    hexlify(getattr(span_list[idx - 2], _)).decode("utf-8")
-                    if _.endswith("_id")
-                    else _
+                    hexlify(getattr(span_list[idx - 2], v)).decode("utf-8")
+                    if v.endswith("_id")
+                    else v
                 )
-                for _ in value.split("-")
+                for v in value.split("-")
             )
         assert case_headers[idx].get(name) == value
