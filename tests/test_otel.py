@@ -438,7 +438,7 @@ class TestOTelSpans:
     ):
         if http_ver == 0:
             pytest.skip("no headers support")
-        if type(value) is str and value.endswith("_id"):
+        if type(value) is str and value in ["trace_id", "span_id"]:
             value = hexlify(getattr(span_list[idx - 2], value)).decode("utf-8")
         assert case_headers[idx].get(name) == value
 
@@ -510,7 +510,7 @@ class TestOTelSpans:
             value = "-".join(
                 (
                     hexlify(getattr(span_list[idx - 2], v)).decode("utf-8")
-                    if v.endswith("_id")
+                    if v in ["trace_id", "span_id"]
                     else v
                 )
                 for v in value.split("-")
