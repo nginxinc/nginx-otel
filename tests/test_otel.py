@@ -106,7 +106,7 @@ _headers = {}
 
 
 def span_attr(span, attr, atype):
-    for value in (a.value for a in span.attributes if a.key == attr):
+    for value in (atrb.value for atrb in span.attributes if atrb.key == attr):
         return getattr(value, atype)
 
 
@@ -149,16 +149,17 @@ def case_spans(spans, http_ver, otel_mode):
 
 
 @pytest.fixture()
-def span_list(case_spans):
+def span(case_spans, idx):
     spans = []
     for batch in case_spans:
         spans.extend(batch[0].scope_spans[0].spans)
-    return spans
+    return spans[idx]
 
 
 @pytest.fixture()
-def case_headers(http_ver, otel_mode):
-    return _headers.get(f"{http_ver}{otel_mode}")
+def headers(http_ver, otel_mode, idx):
+    if http_ver:
+        return _headers.get(f"{http_ver}{otel_mode}")[idx]
 
 
 @pytest.fixture(scope="module")
@@ -299,49 +300,75 @@ class TestOTelSpans:
             case_spans[batch][0].resource, "service.name", "string_value"
         )
 
-    def test_trace_off(self, http_ver, span_list, otel_mode):
-        assert "/trace-off" not in [
-            span_attr(s, "http.target", "string_value") for s in span_list
-        ]
+    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
+    def test_trace_off(self, http_ver, span, idx, otel_mode):
+        assert "/trace-off" != span_attr(span, "http.target", "string_value")
 
+    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
     @pytest.mark.parametrize(
         ("name", "size"),
         [("trace_id", 32), ("span_id", 16)],
         ids=["trace_id", "span_id"],
     )
-    def test_id_size(self, http_ver, span_list, name, size, otel_mode):
-        for s in span_list:
-            assert size == len(hexlify(getattr(s, name)).decode("utf-8"))
+    def test_id_size(self, http_ver, span, idx, name, size, otel_mode):
+        assert size == len(hexlify(getattr(span, name)).decode("utf-8"))
 
     @pytest.mark.parametrize(
         ("path", "span_name", "idx"),
         [
             ("/trace-on", "default_location", 0),
+            ("/trace-on", "default_location", 1),
             ("/context-ignore", "context_ignore", 2),
+            ("/context-ignore", "context_ignore", 3),
             ("/context-extract", "context_extract", 4),
+            ("/context-extract", "context_extract", 5),
             ("/context-inject", "context_inject", 6),
+            ("/context-inject", "context_inject", 7),
             ("/context-propagate", "context_propagate", 8),
+            ("/context-propagate", "context_propagate", 9),
         ],
         ids=[
             "default_location",
+            "default_location",
+            "context_ignore",
             "context_ignore",
             "context_extract",
+            "context_extract",
             "context_inject",
+            "context_inject",
+            "context_propagate",
             "context_propagate",
         ],
     )
     def test_span_name(
-        self, http_ver, span_list, path, span_name, idx, logger, otel_mode
+        self, http_ver, span, path, span_name, idx, logger, otel_mode
     ):
-        assert span_name == span_list[idx].name
-        assert path == span_attr(span_list[idx], "http.target", "string_value")
+        assert span_name == span.name
+        assert path == span_attr(span, "http.target", "string_value")
 
+    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
             ("http.method", "string_value", "GET"),
-            ("http.target", "string_value", "/trace-on"),
-            ("http.route", "string_value", "/trace-on"),
+            (
+                "http.target",
+                "string_value",
+                ["/trace-on"] * 2
+                + ["/context-ignore"] * 2
+                + ["/context-extract"] * 2
+                + ["/context-inject"] * 2
+                + ["/context-propagate"] * 2,
+            ),
+            (
+                "http.route",
+                "string_value",
+                ["/trace-on"] * 2
+                + ["/context-ignore"] * 2
+                + ["/context-extract"] * 2
+                + ["/context-inject"] * 2
+                + ["/context-propagate"] * 2,
+            ),
             ("http.scheme", "string_value", "https"),
             ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
             (
@@ -350,7 +377,7 @@ class TestOTelSpans:
                 [None] + [f"niquests/{niquests.__version__}"] * 3,
             ),
             ("http.request_content_length", "int_value", 0),
-            ("http.response_content_length", "int_value", 8),
+            ("http.response_content_length", "int_value", [8] * 2 + [9] * 8),
             ("http.status_code", "int_value", 200),
             ("net.host.name", "string_value", "localhost"),
             ("net.host.port", "int_value", 8443),
@@ -373,14 +400,17 @@ class TestOTelSpans:
             "net.sock.peer.port",
         ],
     )
-    def test_metrics(self, http_ver, span_list, name, atype, value, otel_mode):
-        v = span_attr(span_list[0], name, atype)
+    def test_metrics(self, http_ver, span, idx, name, atype, value, otel_mode):
+        if name in ["http.flavor", "http.user_agent"]:
+            value = value[http_ver]
+        if type(value) is list:
+            value = value[idx]
         if name == "net.sock.peer.port":
-            assert v in value
+            assert span_attr(span, name, atype) in value
         else:
-            value = value[http_ver] if type(value) is list else value
-            assert v == value
+            assert span_attr(span, name, atype) == value
 
+    @pytest.mark.parametrize("idx", [0, 1], ids=["span"] * 2)
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -404,11 +434,34 @@ class TestOTelSpans:
         ],
     )
     def test_custom_metrics(
-        self, http_ver, span_list, name, atype, value, otel_mode
+        self, http_ver, span, idx, name, atype, value, otel_mode
     ):
-        v = span_attr(span_list[0], name, atype)
-        v = v.values[0].string_value if atype == "array_value" else v
-        assert v == (value[http_ver] if type(value) is list else value)
+        assert (
+            span_attr(span, name, atype).values[0].string_value
+            if atype == "array_value"
+            else span_attr(span, name, atype)
+        ) == (value[http_ver] if type(value) is list else value)
+
+    @pytest.mark.parametrize(
+        "idx", range(2, 10), ids=[f"span{i}" for i in range(2, 10)]
+    )
+    @pytest.mark.parametrize(
+        ("name", "atype", "value"),
+        [
+            ("http.request.completion", "string_value", None),
+            ("http.response.header.content.type", "array_value", None),
+            ("http.request", "string_value", None),
+        ],
+        ids=[
+            "http.request.completion",
+            "http.response.header.content.type",
+            "http.request",
+        ],
+    )
+    def test_no_custom_metrics(
+        self, http_ver, span, idx, name, atype, value, otel_mode
+    ):
+        assert span_attr(span, name, atype) == value
 
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
@@ -434,13 +487,13 @@ class TestOTelSpans:
         ],
     )
     def test_variables(
-        self, http_ver, span_list, case_headers, name, value, idx, otel_mode
+        self, http_ver, span, headers, name, value, idx, otel_mode
     ):
         if http_ver == 0:
             pytest.skip("no headers support")
         if type(value) is str and value in ["trace_id", "span_id"]:
-            value = hexlify(getattr(span_list[idx], value)).decode("utf-8")
-        assert case_headers[idx].get(name) == value
+            value = hexlify(getattr(span, value)).decode("utf-8")
+        assert headers.get(name) == value
 
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
@@ -502,17 +555,17 @@ class TestOTelSpans:
         ],
     )
     def test_trace_context(
-        self, http_ver, span_list, case_headers, name, value, idx, otel_mode
+        self, http_ver, span, headers, name, value, idx, otel_mode
     ):
         if http_ver == 0:
             pytest.skip("no headers support")
         if type(value) is str:
             value = "-".join(
                 (
-                    hexlify(getattr(span_list[idx], v)).decode("utf-8")
-                    if v in ["trace_id", "span_id"]
-                    else v
+                    hexlify(getattr(span, val)).decode("utf-8")
+                    if val in ["trace_id", "span_id"]
+                    else val
                 )
-                for v in value.split("-")
+                for val in value.split("-")
             )
-        assert case_headers[idx].get(name) == value
+        assert headers.get(name) == value
