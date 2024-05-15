@@ -306,11 +306,11 @@ class TestOTelSpans:
             batch.resource, "service.name", "string_value"
         )
 
-    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
+    @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     def test_trace_off(self, http_ver, span, idx, otel_mode):
         assert "/trace-off" != span_attr(span, "http.target", "string_value")
 
-    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
+    @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     @pytest.mark.parametrize(
         ("name", "size"),
         [("trace_id", 32), ("span_id", 16)],
@@ -332,7 +332,8 @@ class TestOTelSpans:
             ("/context-inject", "context_inject", 7),
             ("/context-propagate", "context_propagate", 8),
             ("/context-propagate", "context_propagate", 9),
-        ],
+        ]
+        + [("/trace-on", "default_location", i) for i in range(10, 30)],
         ids=[
             "default_location-span0",
             "default_location-span1",
@@ -344,7 +345,8 @@ class TestOTelSpans:
             "context_inject-span7",
             "context_propagate-span8",
             "context_propagate-span9",
-        ],
+        ]
+        + [f"trace-on-span{i}" for i in range(10, 30)],
     )
     def test_span_name(
         self, http_ver, span, path, span_name, idx, logger, otel_mode
@@ -352,7 +354,7 @@ class TestOTelSpans:
         assert span_name == span.name
         assert path == span_attr(span, "http.target", "string_value")
 
-    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
+    @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -364,7 +366,8 @@ class TestOTelSpans:
                 + ["/context-ignore"] * 2
                 + ["/context-extract"] * 2
                 + ["/context-inject"] * 2
-                + ["/context-propagate"] * 2,
+                + ["/context-propagate"] * 2
+                + ["/trace-on"] * 20,
             ),
             (
                 "http.route",
@@ -373,7 +376,8 @@ class TestOTelSpans:
                 + ["/context-ignore"] * 2
                 + ["/context-extract"] * 2
                 + ["/context-inject"] * 2
-                + ["/context-propagate"] * 2,
+                + ["/context-propagate"] * 2
+                + ["/trace-on"] * 20,
             ),
             ("http.scheme", "string_value", "https"),
             ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
@@ -383,7 +387,11 @@ class TestOTelSpans:
                 [None] + [f"niquests/{niquests.__version__}"] * 3,
             ),
             ("http.request_content_length", "int_value", 0),
-            ("http.response_content_length", "int_value", [8] * 2 + [9] * 8),
+            (
+                "http.response_content_length",
+                "int_value",
+                [8] * 2 + [9] * 8 + [8] * 20,
+            ),
             ("http.status_code", "int_value", 200),
             ("net.host.name", "string_value", "localhost"),
             ("net.host.port", "int_value", 8443),
@@ -416,7 +424,11 @@ class TestOTelSpans:
         else:
             assert span_attr(span, name, atype) == value
 
-    @pytest.mark.parametrize("idx", [0, 1], ids=["span"] * 2)
+    @pytest.mark.parametrize(
+        "idx",
+        [0, 1] + [i for i in range(10, 30)],
+        ids=["span"] * 2 + [f"span{i}" for i in range(10, 30)],
+    )
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
