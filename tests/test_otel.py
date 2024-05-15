@@ -143,15 +143,25 @@ def simple_client(url, logger):
 
 
 @pytest.fixture()
-def case_spans(spans, http_ver, otel_mode):
+def batches(spans, http_ver, otel_mode):
     pos = 6 * http_ver + 3 * otel_mode
     return spans[pos : pos + 3]
 
 
 @pytest.fixture()
-def span(case_spans, idx):
+def batch(batches, idx):
+    return batches[idx][0]
+
+
+@pytest.fixture()
+def scope_spans(batch):
+    return batch.scope_spans[0].spans
+
+
+@pytest.fixture()
+def span(batches, idx):
     spans = []
-    for batch in case_spans:
+    for batch in batches:
         spans.extend(batch[0].scope_spans[0].spans)
     return spans[idx]
 
@@ -285,19 +295,15 @@ class TestOTelGenerateSpans:
 @pytest.mark.parametrize("otel_mode", [0, 1], ids=["to mock", "to otelcol"])
 class TestOTelSpans:
     @pytest.mark.parametrize(
-        ("batch", "size"),
-        [(0, 10), (1, 10), (2, 10)],
-        ids=["batch 0", "batch 1", "batch 2"],
+        ("idx", "size"), [(0, 10), (1, 10), (2, 10)], ids=["batch"] * 3
     )
-    def test_batch_size(self, http_ver, case_spans, batch, size, otel_mode):
-        assert size == len(case_spans[batch][0].scope_spans[0].spans)
+    def test_batch_size(self, http_ver, scope_spans, idx, size, otel_mode):
+        assert size == len(scope_spans)
 
-    @pytest.mark.parametrize(
-        "batch", [0, 1, 2], ids=["batch 0", "batch 1", "batch 2"]
-    )
-    def test_service_name(self, http_ver, case_spans, batch, otel_mode):
+    @pytest.mark.parametrize("idx", [0, 1, 2], ids=["batch"] * 3)
+    def test_service_name(self, http_ver, batch, idx, otel_mode):
         assert f"test_http{http_ver}" == span_attr(
-            case_spans[batch][0].resource, "service.name", "string_value"
+            batch.resource, "service.name", "string_value"
         )
 
     @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
@@ -328,16 +334,16 @@ class TestOTelSpans:
             ("/context-propagate", "context_propagate", 9),
         ],
         ids=[
-            "default_location",
-            "default_location",
-            "context_ignore",
-            "context_ignore",
-            "context_extract",
-            "context_extract",
-            "context_inject",
-            "context_inject",
-            "context_propagate",
-            "context_propagate",
+            "default_location-span0",
+            "default_location-span1",
+            "context_ignore-span2",
+            "context_ignore-span3",
+            "context_extract-span4",
+            "context_extract-span5",
+            "context_inject-span6",
+            "context_inject-span7",
+            "context_propagate-span8",
+            "context_propagate-span9",
         ],
     )
     def test_span_name(
@@ -476,14 +482,14 @@ class TestOTelSpans:
             ("X-Otel-Parent-Sampled", "1", 1),
         ],
         ids=[
-            "otel_trace_id-no context",
-            "otel_span_id-no context",
-            "no otel_parent_id-no context",
-            "otel_parent_sampled is 0-no context",
-            "otel_trace_id-with context",
-            "otel_span_id-with context",
-            "otel_parent_id-with context",
-            "otel_parent_sampled is 1-with context",
+            "otel_trace_id-no context-span0",
+            "otel_span_id-no context-span0",
+            "no otel_parent_id-no context-span0",
+            "otel_parent_sampled is 0-no context-span0",
+            "otel_trace_id-with context-span1",
+            "otel_span_id-with context-span1",
+            "otel_parent_id-with context-span1",
+            "otel_parent_sampled is 1-with context-span1",
         ],
     )
     def test_variables(
@@ -526,32 +532,32 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", context["Tracestate"], 9),
         ],
         ids=[
-            "ignore-no traceparent-no context",
-            "ignore-no tracestate-no context",
-            "ignore-no parent id-with context",
-            "ignore-old traceparent-with context",
-            "ignore-old tracestate-with context",
+            "ignore-no traceparent-no context-span2",
+            "ignore-no tracestate-no context-span2",
+            "ignore-no parent id-with context-span3",
+            "ignore-old traceparent-with context-span3",
+            "ignore-old tracestate-with context-span3",
         ]
         + [
-            "extract-no traceparent-no context",
-            "extract-no tracestate-no context",
-            "extract-old parent id-with context",
-            "extract-old traceparent-with context",
-            "extract-old tracestate-with context",
+            "extract-no traceparent-no context-span4",
+            "extract-no tracestate-no context-span4",
+            "extract-old parent id-with context-span5",
+            "extract-old traceparent-with context-span5",
+            "extract-old tracestate-with context-span5",
         ]
         + [
-            "inject-new traceparent-no context",
-            "inject-no tracestate-no context",
-            "inject-no parent id-with context",
-            "inject-new traceparent-with context",
-            "inject-no tracestate-with context",
+            "inject-new traceparent-no context-span6",
+            "inject-no tracestate-no context-span6",
+            "inject-no parent id-with context-span7",
+            "inject-new traceparent-with context-span7",
+            "inject-no tracestate-with context-span7",
         ]
         + [
-            "propagate-new traceparent-no context",
-            "propagate-no tracestate-no context",
-            "propagate-old parent id-with context",
-            "propagate-updated traceparent(new span id)-with context",
-            "propagate-old tracestate-with context",
+            "propagate-new traceparent-no context-span8",
+            "propagate-no tracestate-no context-span8",
+            "propagate-old parent id-with context-span9",
+            "propagate-updated traceparent(new span id)-with context-span9",
+            "propagate-old tracestate-with context-span9",
         ],
     )
     def test_trace_context(
