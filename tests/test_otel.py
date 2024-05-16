@@ -160,10 +160,7 @@ def scope_spans(batch):
 
 @pytest.fixture()
 def span(batches, idx):
-    spans = []
-    for batch in batches:
-        spans.extend(batch[0].scope_spans[0].spans)
-    return spans[idx]
+    return batches[idx // 10][0].scope_spans[0].spans[idx % 10]
 
 
 @pytest.fixture()
