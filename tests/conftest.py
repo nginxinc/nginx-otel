@@ -46,6 +46,13 @@ def testdir(tmp_path_factory):
     return tmp_path_factory.mktemp("nginx")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def errorlog(request, logger, testdir):
+    yield
+    if request.session.testsfailed:
+        logger.debug((testdir / "error.log").read_text())
+
+
 @pytest.fixture(scope="module")
 def nginx_config(request, testdir, logger):
     tmpl = Environment().from_string(request.module.NGINX_CONFIG)
