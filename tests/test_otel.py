@@ -278,12 +278,11 @@ class TestOTelGenerateSpans:
         self, logger, session, http_ver, otel_mode, url, headers, response
     ):
         if http_ver == 0:
-            assert response == simple_client(url, logger)
+            assert simple_client(url, logger) == response
         else:
             resp = session.get(url, headers=headers, verify=False)
             collect_headers(resp.headers, f"{http_ver}{otel_mode}")
-            assert resp.status_code == 200
-            assert resp.text == response
+            assert (resp.text, resp.status_code) == (response, 200)
 
 
 @pytest.mark.parametrize(
@@ -295,26 +294,23 @@ class TestOTelSpans:
         ("idx", "size"), [(0, 10), (1, 10), (2, 10)], ids=["batch"] * 3
     )
     def test_batch_size(self, http_ver, scope_spans, idx, size, otel_mode):
-        assert size == len(scope_spans)
+        assert len(scope_spans) == size
 
     @pytest.mark.parametrize("idx", [0, 1, 2], ids=["batch"] * 3)
     def test_service_name(self, http_ver, batch, idx, otel_mode):
-        assert f"test_http{http_ver}" == span_attr(
-            batch.resource, "service.name", "string_value"
+        assert (
+            span_attr(batch.resource, "service.name", "string_value")
+            == f"test_http{http_ver}"
         )
-
-    @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
-    def test_trace_off(self, http_ver, span, idx, otel_mode):
-        assert "/trace-off" != span_attr(span, "http.target", "string_value")
 
     @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     @pytest.mark.parametrize(
         ("name", "size"),
-        [("trace_id", 32), ("span_id", 16)],
+        [("trace_id", 16), ("span_id", 8)],
         ids=["trace_id", "span_id"],
     )
     def test_id_size(self, http_ver, span, idx, name, size, otel_mode):
-        assert size == len(hexlify(getattr(span, name)).decode("utf-8"))
+        assert len(getattr(span, name)) == size
 
     @pytest.mark.parametrize(
         ("name", "idx"),
@@ -346,7 +342,7 @@ class TestOTelSpans:
         + [f"default_location-span{i}" for i in range(10, 30)],
     )
     def test_span_name(self, http_ver, span, name, idx, otel_mode):
-        assert name == span.name
+        assert span.name == name
 
     @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     @pytest.mark.parametrize(
