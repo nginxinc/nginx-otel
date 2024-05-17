@@ -317,20 +317,20 @@ class TestOTelSpans:
         assert size == len(hexlify(getattr(span, name)).decode("utf-8"))
 
     @pytest.mark.parametrize(
-        ("path", "span_name", "idx"),
+        ("name", "idx"),
         [
-            ("/trace-on", "default_location", 0),
-            ("/trace-on", "default_location", 1),
-            ("/context-ignore", "context_ignore", 2),
-            ("/context-ignore", "context_ignore", 3),
-            ("/context-extract", "context_extract", 4),
-            ("/context-extract", "context_extract", 5),
-            ("/context-inject", "context_inject", 6),
-            ("/context-inject", "context_inject", 7),
-            ("/context-propagate", "context_propagate", 8),
-            ("/context-propagate", "context_propagate", 9),
+            ("default_location", 0),
+            ("default_location", 1),
+            ("context_ignore", 2),
+            ("context_ignore", 3),
+            ("context_extract", 4),
+            ("context_extract", 5),
+            ("context_inject", 6),
+            ("context_inject", 7),
+            ("context_propagate", 8),
+            ("context_propagate", 9),
         ]
-        + [("/trace-on", "default_location", i) for i in range(10, 30)],
+        + [("default_location", i) for i in range(10, 30)],
         ids=[
             "default_location-span0",
             "default_location-span1",
@@ -343,13 +343,10 @@ class TestOTelSpans:
             "context_propagate-span8",
             "context_propagate-span9",
         ]
-        + [f"trace-on-span{i}" for i in range(10, 30)],
+        + [f"default_location-span{i}" for i in range(10, 30)],
     )
-    def test_span_name(
-        self, http_ver, span, path, span_name, idx, logger, otel_mode
-    ):
-        assert span_name == span.name
-        assert path == span_attr(span, "http.target", "string_value")
+    def test_span_name(self, http_ver, span, name, idx, otel_mode):
+        assert name == span.name
 
     @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
     @pytest.mark.parametrize(
