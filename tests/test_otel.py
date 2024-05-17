@@ -86,6 +86,10 @@ http {
 
         location /trace-off {
             otel_trace off;
+            add_header "X-Otel-Trace-Id" $otel_trace_id;
+            add_header "X-Otel-Span-Id" $otel_span_id;
+            add_header "X-Otel-Parent-Id" $otel_parent_id;
+            add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
             add_header "X-Otel-Traceparent" $http_traceparent;
             add_header "X-Otel-Tracestate" $http_tracestate;
             return 200 "TRACE-OFF";
@@ -501,6 +505,31 @@ class TestOTelSpans:
             pytest.skip("no headers support")
         if type(value) is str and value in ["trace_id", "span_id"]:
             value = hexlify(getattr(span, value)).decode("utf-8")
+        assert headers.get(name) == value
+
+    # test fails due to existing otel variables when trace off;
+    @pytest.mark.xfail
+    @pytest.mark.parametrize(
+        ("value", "idx"), [(None, 10), (None, 11)], ids=["trace off"] * 2
+    )
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "X-Otel-Trace-Id",
+            "X-Otel-Span-Id",
+            "X-Otel-Parent-Id",
+            "X-Otel-Parent-Sampled",
+        ],
+        ids=[
+            "otel_trace_id",
+            "otel_span_id",
+            "otel_parent_id",
+            "otel_parent_sampled",
+        ],
+    )
+    def test_no_variables(self, http_ver, headers, name, value, idx, otel_mode):
+        if http_ver == 0:
+            pytest.skip("no headers support")
         assert headers.get(name) == value
 
     @pytest.mark.parametrize(
