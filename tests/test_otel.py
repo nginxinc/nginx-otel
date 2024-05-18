@@ -508,7 +508,6 @@ class TestOTelSpans:
         assert headers.get(name) == value
 
     # test fails due to existing otel variables when trace off;
-    #    @pytest.mark.xfail
     @pytest.mark.parametrize(
         ("value", "idx"), [(None, 10), (None, 11)], ids=["trace off"] * 2
     )
