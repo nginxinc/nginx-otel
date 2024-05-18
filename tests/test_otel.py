@@ -508,7 +508,7 @@ class TestOTelSpans:
         assert headers.get(name) == value
 
     # test fails due to existing otel variables when trace off;
-    @pytest.mark.xfail
+    #    @pytest.mark.xfail
     @pytest.mark.parametrize(
         ("value", "idx"), [(None, 10), (None, 11)], ids=["trace off"] * 2
     )
@@ -530,6 +530,8 @@ class TestOTelSpans:
     def test_no_variables(self, http_ver, headers, name, value, idx, otel_mode):
         if http_ver == 0:
             pytest.skip("no headers support")
+        if name != "X-Otel-Parent-Id":
+            pytest.xfail()
         assert headers.get(name) == value
 
     @pytest.mark.parametrize(
