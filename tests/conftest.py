@@ -47,7 +47,7 @@ def testdir(tmp_path_factory):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def errorlog(request, logger, testdir):
+def _errorlog(request, logger, testdir):
     yield
     if request.session.testsfailed:
         logger.debug((testdir / "error.log").read_text())
