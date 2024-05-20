@@ -146,28 +146,28 @@ def simple_client(url, logger):
     return recv
 
 
-@pytest.fixture()
+@pytest.fixture
 def batches(spans, http_ver, otel_mode):
     pos = 6 * http_ver + 3 * otel_mode
     return spans[pos : pos + 3]
 
 
-@pytest.fixture()
+@pytest.fixture
 def batch(batches, idx):
     return batches[idx][0]
 
 
-@pytest.fixture()
+@pytest.fixture
 def scope_spans(batch):
     return batch.scope_spans[0].spans
 
 
-@pytest.fixture()
+@pytest.fixture
 def span(batches, idx):
     return batches[idx // 10][0].scope_spans[0].spans[idx % 10]
 
 
-@pytest.fixture()
+@pytest.fixture
 def headers(http_ver, otel_mode, idx):
     if http_ver:
         return _headers.get(f"{http_ver}{otel_mode}")[idx]
@@ -211,7 +211,7 @@ service:
         proc.kill()
 
 
-@pytest.fixture()
+@pytest.fixture
 def session(http_ver, url):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     with niquests.Session(multiplexed=True) as s:
