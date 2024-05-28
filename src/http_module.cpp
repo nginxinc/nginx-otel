@@ -22,6 +22,7 @@ struct MainConf {
     size_t batchCount;
 
     ngx_str_t serviceName;
+    ngx_array_t resourceAttrs;
 };
 
 struct SpanAttr {
@@ -39,6 +40,7 @@ struct LocationConf {
 
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* addResourceAttrs(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
 
@@ -67,6 +69,12 @@ ngx_command_t gCommands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
       offsetof(MainConf, serviceName) },
+    
+    { ngx_string("otel_resource_attr"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
+      addResourceAttrs,
+      NGX_HTTP_MAIN_CONF_OFFSET,
+      offsetof(MainConf, resourceAttrs) },
 
     { ngx_string("otel_trace"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -455,6 +463,7 @@ void addCustomAttrs(BatchExporter::Span& span, ngx_http_request_t* r)
     }
 }
 
+
 ngx_int_t onRequestEnd(ngx_http_request_t* r)
 {
     auto ctx = getOtelCtx(r);
@@ -540,7 +549,9 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
             toStrView(mcf->endpoint),
             mcf->batchSize,
             mcf->batchCount,
-            toStrView(mcf->serviceName)));
+            toStrView(mcf->serviceName),
+            mcf->resourceAttrs
+            ));
     } catch (const std::exception& e) {
         ngx_log_error(NGX_LOG_CRIT, cycle->log, 0,
             "OTel worker init error: %s", e.what());
@@ -699,6 +710,58 @@ char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 
     ngx_http_compile_complex_value_t ccv = { cf, &args[2], &attr->value };
     if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
+    auto mcf = (MainConf*)conf;
+
+    if (mcf->resourceAttrs.elts == NULL && ngx_array_init(&mcf->resourceAttrs,
+            cf->pool, 4, sizeof(ResourceAttr)) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    auto attr = (ResourceAttr*)ngx_array_push(&mcf->resourceAttrs);
+    if (attr == NULL) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    auto args = (ngx_str_t*)cf->args->elts;
+
+    attr->name = args[0];
+
+    ngx_http_compile_complex_value_t ccv = { cf, &args[1], &attr->value };
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* addResourceAttrs(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto mcf = (MainConf*)conf;
+
+    if (mcf->resourceAttrs.elts == NULL && ngx_array_init(&mcf->resourceAttrs,
+        cf->pool, 4, sizeof(ResourceAttr)) != NGX_OK) {
+            return (char*)NGX_CONF_ERROR;
+        }
+    
+    auto cfCopy = *cf;
+
+    cfCopy.handler = addResourceAttr;
+    cfCopy.handler_conf = mcf;
+    auto rv = ngx_conf_parse(&cfCopy, NULL);
+    if (rv != NGX_CONF_OK) {
+        return rv;
+    }
+
+    if (mcf->endpoint.len == 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"otel_exporter\" requires \"endpoint\"");
         return (char*)NGX_CONF_ERROR;
     }
 
