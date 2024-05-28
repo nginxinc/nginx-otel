@@ -48,6 +48,10 @@ http {
         batch_count 2;
     }
 
+	otel_resource_attr {
+		service.namespace 	test;
+	}
+
     otel_service_name test_server;
     otel_trace on;
 
@@ -162,7 +166,7 @@ open STDERR, ">&", \*OLDERR;
 $t->waitforsocket('127.0.0.1:' . port(4317)) or
 	die 'No otel collector open socket';
 
-$t->try_run('no OTel module')->plan(69);
+$t->try_run('no OTel module')->plan(70);
 
 ###############################################################################
 
@@ -209,6 +213,9 @@ is(scalar @{${JSON::PP::decode_json($batches[1])}{"resourceSpans"}[0]
 is(get_attr("service.name", "stringValue",
 	$$batch_json{resourceSpans}[0]{resource}),
 	'test_server', 'service.name - trace on');
+is(get_attr("service.namespace", "stringValue",
+	$$batch_json{resourceSpans}[0]{resource}),
+	'test', 'service.namespace - trace on');
 is($$spans[0]{name}, 'default_location', 'span.name - trace on');
 
 #validate http metrics
