@@ -62,7 +62,7 @@ jobs:
         working-directory: tests
         run: pip install -r requirements.txt
       - name: Download otelcol
-        uses: robinraju/release-downloader@v1.10
+        uses: robinraju/release-downloader@v1.11
         with:
           repository: open-telemetry/opentelemetry-collector-releases
           tag: v0.103.1
