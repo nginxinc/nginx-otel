@@ -60,6 +60,7 @@ http {
             otel_trace_context ignore;
             otel_span_name context_ignore;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
+            proxy_set_header "X-Otel-Context" "ignore";
             proxy_pass http://127.0.0.1:8080/trace-off;
         }
 
@@ -67,6 +68,7 @@ http {
             otel_trace_context extract;
             otel_span_name context_extract;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
+            proxy_set_header "X-Otel-Context" "extract";
             proxy_pass http://127.0.0.1:8080/trace-off;
         }
 
@@ -74,6 +76,7 @@ http {
             otel_trace_context inject;
             otel_span_name context_inject;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
+            proxy_set_header "X-Otel-Context" "inject";
             proxy_pass http://127.0.0.1:8080/trace-off;
         }
 
@@ -81,11 +84,15 @@ http {
             otel_trace_context propagate;
             otel_span_name context_propagate;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
+            proxy_set_header "X-Otel-Context" "propagate";
             proxy_pass http://127.0.0.1:8080/trace-off;
         }
 
         location /trace-off {
             otel_trace off;
+            if ($http_x_otel_context ~ "ignore|extract|inject|propagate") {
+                return 204;
+            }
             add_header "X-Otel-Trace-Id" $otel_trace_id;
             add_header "X-Otel-Span-Id" $otel_span_id;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
@@ -212,7 +219,9 @@ service:
 
 
 @pytest.fixture
-def session(http_ver, url):
+def response(logger, http_ver, otel_mode, url, headers):
+    if http_ver == 0:
+        return simple_client(url, logger)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     with niquests.Session(multiplexed=True) as s:
         if http_ver == 3:
@@ -220,7 +229,9 @@ def session(http_ver, url):
             assert parsed.scheme == "https", "Only https:// URLs are supported."
             port = parsed.port if parsed.port is not None else 8443
             s.quic_cache_layer.add_domain(parsed.hostname, port)
-        yield s
+        resp = s.get(url, headers=headers, verify=False)
+    collect_headers(resp.headers, f"{http_ver}{otel_mode}")
+    return resp.text
 
 
 @pytest.mark.usefixtures("_otelcollector", "_otelcol", "nginx")
@@ -258,13 +269,13 @@ class TestOTelGenerateSpans:
         "headers", [None, context], ids=["no context", "with context"]
     )
     @pytest.mark.parametrize(
-        ("url", "response"),
+        ("url", "text"),
         [
             ("https://127.0.0.1:8443/trace-on", "TRACE-ON"),
-            ("https://127.0.0.1:8443/context-ignore", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-extract", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-inject", "TRACE-OFF"),
-            ("https://127.0.0.1:8443/context-propagate", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/context-ignore", ""),
+            ("https://127.0.0.1:8443/context-extract", ""),
+            ("https://127.0.0.1:8443/context-inject", ""),
+            ("https://127.0.0.1:8443/context-propagate", ""),
             ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
         ]
         + [("https://127.0.0.1:8443/trace-on", "TRACE-ON")] * 10,
@@ -279,14 +290,9 @@ class TestOTelGenerateSpans:
         + ["trace-on bulk request"] * 10,
     )
     def test_do_request(
-        self, logger, session, http_ver, otel_mode, url, headers, response
+        self, logger, response, http_ver, otel_mode, url, headers, text
     ):
-        if http_ver == 0:
-            assert simple_client(url, logger) == response
-        else:
-            resp = session.get(url, headers=headers, verify=False)
-            collect_headers(resp.headers, f"{http_ver}{otel_mode}")
-            assert (resp.text, resp.status_code) == (response, 200)
+        assert response == text
 
 
 @pytest.mark.parametrize(
@@ -384,9 +390,13 @@ class TestOTelSpans:
             (
                 "http.response_content_length",
                 "int_value",
-                [8] * 2 + [9] * 8 + [8] * 20,
+                [8] * 2 + [0] * 8 + [8] * 20,
             ),
-            ("http.status_code", "int_value", 200),
+            (
+                "http.status_code",
+                "int_value",
+                [200] * 2 + [204] * 8 + [200] * 20,
+            ),
             ("net.host.name", "string_value", "localhost"),
             ("net.host.port", "int_value", 8443),
             ("net.sock.peer.addr", "string_value", "127.0.0.1"),
