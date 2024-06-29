@@ -546,6 +546,7 @@ class TestOTelSpans:
     @pytest.mark.parametrize(
         ("name", "value", "idx"),
         [
+            ("X-Otel-Parent-Id", None, 2),
             ("X-Otel-Traceparent", None, 2),
             ("X-Otel-Tracestate", None, 2),
             ("X-Otel-Parent-Id", None, 3),
@@ -553,6 +554,7 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", context["Tracestate"], 3),
         ]
         + [
+            ("X-Otel-Parent-Id", None, 4),
             ("X-Otel-Traceparent", None, 4),
             ("X-Otel-Tracestate", None, 4),
             ("X-Otel-Parent-Id", span_id, 5),
@@ -560,6 +562,7 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", context["Tracestate"], 5),
         ]
         + [
+            ("X-Otel-Parent-Id", None, 6),
             ("X-Otel-Traceparent", "00-trace_id-span_id-01", 6),
             ("X-Otel-Tracestate", None, 6),
             ("X-Otel-Parent-Id", None, 7),
@@ -567,6 +570,7 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", None, 7),
         ]
         + [
+            ("X-Otel-Parent-Id", None, 8),
             ("X-Otel-Traceparent", "00-trace_id-span_id-01", 8),
             ("X-Otel-Tracestate", None, 8),
             ("X-Otel-Parent-Id", span_id, 9),
@@ -574,6 +578,7 @@ class TestOTelSpans:
             ("X-Otel-Tracestate", context["Tracestate"], 9),
         ],
         ids=[
+            "ignore-no parent id-no context-span2",
             "ignore-no traceparent-no context-span2",
             "ignore-no tracestate-no context-span2",
             "ignore-no parent id-with context-span3",
@@ -581,6 +586,7 @@ class TestOTelSpans:
             "ignore-old tracestate-with context-span3",
         ]
         + [
+            "extract-no parent id-no context-span4",
             "extract-no traceparent-no context-span4",
             "extract-no tracestate-no context-span4",
             "extract-old parent id-with context-span5",
@@ -588,6 +594,7 @@ class TestOTelSpans:
             "extract-old tracestate-with context-span5",
         ]
         + [
+            "inject-no parent id-no context-span6",
             "inject-new traceparent-no context-span6",
             "inject-no tracestate-no context-span6",
             "inject-no parent id-with context-span7",
@@ -595,6 +602,7 @@ class TestOTelSpans:
             "inject-no tracestate-with context-span7",
         ]
         + [
+            "propagate-no parent id-no context-span8",
             "propagate-new traceparent-no context-span8",
             "propagate-no tracestate-no context-span8",
             "propagate-old parent id-with context-span9",
