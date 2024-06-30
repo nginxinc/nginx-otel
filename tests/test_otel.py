@@ -60,46 +60,44 @@ http {
             otel_trace_context ignore;
             otel_span_name context_ignore;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
-            proxy_set_header "X-Otel-Context" "ignore";
-            proxy_pass http://127.0.0.1:8080/trace-off;
+            proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-extract {
             otel_trace_context extract;
             otel_span_name context_extract;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
-            proxy_set_header "X-Otel-Context" "extract";
-            proxy_pass http://127.0.0.1:8080/trace-off;
+            proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-inject {
             otel_trace_context inject;
             otel_span_name context_inject;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
-            proxy_set_header "X-Otel-Context" "inject";
-            proxy_pass http://127.0.0.1:8080/trace-off;
+            proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-propagate {
             otel_trace_context propagate;
             otel_span_name context_propagate;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
-            proxy_set_header "X-Otel-Context" "propagate";
-            proxy_pass http://127.0.0.1:8080/trace-off;
+            proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /trace-off {
             otel_trace off;
-            if ($http_x_otel_context ~ "ignore|extract|inject|propagate") {
-                return 204;
-            }
             add_header "X-Otel-Trace-Id" $otel_trace_id;
             add_header "X-Otel-Span-Id" $otel_span_id;
             add_header "X-Otel-Parent-Id" $otel_parent_id;
             add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
+            return 200 "TRACE-OFF";
+        }
+
+        location /204 {
+            otel_trace off;
             add_header "X-Otel-Traceparent" $http_traceparent;
             add_header "X-Otel-Tracestate" $http_tracestate;
-            return 200 "TRACE-OFF";
+            return 204;
         }
     }
 }
