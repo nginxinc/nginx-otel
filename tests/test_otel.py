@@ -36,6 +36,11 @@ http {
     otel_service_name {{ name }};
     otel_trace on;
 
+    add_header "X-Otel-Trace-Id" $otel_trace_id;
+    add_header "X-Otel-Span-Id" $otel_span_id;
+    add_header "X-Otel-Parent-Id" $otel_parent_id;
+    add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
+
     server {
         listen       127.0.0.1:8443 {{ mode }};
         listen       127.0.0.1:8080;
@@ -49,47 +54,35 @@ http {
             otel_span_attr http.response.header.content.type
                 $sent_http_content_type;
             otel_span_attr http.request $request;
-            add_header "X-Otel-Trace-Id" $otel_trace_id;
-            add_header "X-Otel-Span-Id" $otel_span_id;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
-            add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
             return 200 "TRACE-ON";
         }
 
         location /context-ignore {
             otel_trace_context ignore;
             otel_span_name context_ignore;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
             proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-extract {
             otel_trace_context extract;
             otel_span_name context_extract;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
             proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-inject {
             otel_trace_context inject;
             otel_span_name context_inject;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
             proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /context-propagate {
             otel_trace_context propagate;
             otel_span_name context_propagate;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
             proxy_pass http://127.0.0.1:8080/204;
         }
 
         location /trace-off {
             otel_trace off;
-            add_header "X-Otel-Trace-Id" $otel_trace_id;
-            add_header "X-Otel-Span-Id" $otel_span_id;
-            add_header "X-Otel-Parent-Id" $otel_parent_id;
-            add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
             return 200 "TRACE-OFF";
         }
 
