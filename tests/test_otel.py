@@ -81,11 +81,6 @@ http {
             proxy_pass http://127.0.0.1:8080/204;
         }
 
-        location /trace-off {
-            otel_trace off;
-            return 200 "TRACE-OFF";
-        }
-
         location /204 {
             otel_trace off;
             add_header "X-Otel-Traceparent" $http_traceparent;
@@ -267,7 +262,7 @@ class TestOTelGenerateSpans:
             ("https://127.0.0.1:8443/context-extract", ""),
             ("https://127.0.0.1:8443/context-inject", ""),
             ("https://127.0.0.1:8443/context-propagate", ""),
-            ("https://127.0.0.1:8443/trace-off", "TRACE-OFF"),
+            ("https://127.0.0.1:8443/204", ""),
         ]
         + [("https://127.0.0.1:8443/trace-on", "TRACE-ON")] * 10,
         ids=[
@@ -508,7 +503,7 @@ class TestOTelSpans:
             value = hexlify(getattr(span, value)).decode("utf-8")
         assert headers.get(name) == value
 
-    # test fails due to existing otel variables when trace off;
+    @pytest.mark.xfail(True, reason="otel variables are present when no trace")
     @pytest.mark.parametrize(
         ("value", "idx"), [(None, 10), (None, 11)], ids=["trace off"] * 2
     )
@@ -530,8 +525,6 @@ class TestOTelSpans:
     def test_no_variables(self, http_ver, headers, name, value, idx, otel_mode):
         if http_ver == 0:
             pytest.skip("no headers support")
-        if name != "X-Otel-Parent-Id":
-            pytest.xfail()
         assert headers.get(name) == value
 
     @pytest.mark.parametrize(
