@@ -6,7 +6,10 @@ set(NGX_OTEL_NGINX_BUILD_DIR ""
 set(NGX_OTEL_NGINX_DIR "${NGX_OTEL_NGINX_BUILD_DIR}/.."
     CACHE PATH "Nginx source dir")
 
-set(NGX_OTEL_FETCH_DEPS ON  CACHE BOOL "Download dependencies")
+set(NGX_OTEL_GRPC e241f37befe7ba4688effd84bfbf99b0f681a2f7 # v1.49.4
+    CACHE STRING "gRPC tag to download or 'package' to use preinstalled")
+set(NGX_OTEL_SDK  11d5d9e0d8fd8ba876c8994714cc2647479b6574 # v1.11.0
+    CACHE STRING "OTel SDK tag to download or 'package' to use preinstalled")
 set(NGX_OTEL_PROTO_DIR  ""  CACHE PATH "OTel proto files root")
 set(NGX_OTEL_DEV        OFF CACHE BOOL "Enforce compiler warnings")
 
@@ -16,13 +19,16 @@ endif()
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-if(NGX_OTEL_FETCH_DEPS)
+if(NGX_OTEL_GRPC STREQUAL "package")
+    find_package(protobuf REQUIRED)
+    find_package(gRPC REQUIRED)
+else()
     include(FetchContent)
 
     FetchContent_Declare(
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc
-        GIT_TAG        e241f37befe7ba4688effd84bfbf99b0f681a2f7 # v1.49.4
+        GIT_TAG        ${NGX_OTEL_GRPC}
         GIT_SUBMODULES third_party/protobuf third_party/abseil-cpp third_party/re2
         GIT_SHALLOW    ON)
 
@@ -32,10 +38,29 @@ if(NGX_OTEL_FETCH_DEPS)
     set(gRPC_SSL_PROVIDER   package CACHE INTERNAL "")
     set(gRPC_ZLIB_PROVIDER  package CACHE INTERNAL "")
 
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+    FetchContent_MakeAvailable(grpc)
+
+    # reconsider once https://github.com/grpc/grpc/issues/36023 is done
+    target_compile_definitions(grpc PRIVATE GRPC_NO_XDS GRPC_NO_RLS)
+
+    set_property(DIRECTORY ${grpc_SOURCE_DIR}
+                 PROPERTY EXCLUDE_FROM_ALL YES)
+
+    add_library(gRPC::grpc++ ALIAS grpc++)
+    add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
+endif()
+
+if(NGX_OTEL_SDK STREQUAL "package")
+    find_package(opentelemetry-cpp REQUIRED)
+else()
+    include(FetchContent)
+
     FetchContent_Declare(
         otelcpp
         GIT_REPOSITORY https://github.com/open-telemetry/opentelemetry-cpp
-        GIT_TAG        11d5d9e0d8fd8ba876c8994714cc2647479b6574 # v1.11.0
+        GIT_TAG        ${NGX_OTEL_SDK}
         GIT_SUBMODULES third_party/opentelemetry-proto
         GIT_SHALLOW    ON)
 
@@ -45,13 +70,8 @@ if(NGX_OTEL_FETCH_DEPS)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     set(CMAKE_POLICY_DEFAULT_CMP0063 NEW)
 
-    FetchContent_MakeAvailable(grpc otelcpp)
+    FetchContent_MakeAvailable(otelcpp)
 
-    # reconsider once https://github.com/grpc/grpc/issues/36023 is done
-    target_compile_definitions(grpc PRIVATE GRPC_NO_XDS GRPC_NO_RLS)
-
-    set_property(DIRECTORY ${grpc_SOURCE_DIR}
-                 PROPERTY EXCLUDE_FROM_ALL YES)
     set_property(DIRECTORY ${otelcpp_SOURCE_DIR}
                  PROPERTY EXCLUDE_FROM_ALL YES)
 
@@ -61,12 +81,6 @@ if(NGX_OTEL_FETCH_DEPS)
     endif()
 
     add_library(opentelemetry-cpp::trace ALIAS opentelemetry_trace)
-    add_library(gRPC::grpc++ ALIAS grpc++)
-    add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
-else()
-    find_package(opentelemetry-cpp REQUIRED)
-    find_package(protobuf REQUIRED)
-    find_package(gRPC REQUIRED)
 endif()
 
 set(PROTO_DIR ${NGX_OTEL_PROTO_DIR})
