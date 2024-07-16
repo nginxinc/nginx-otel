@@ -34,9 +34,13 @@ else()
 
     set(gRPC_USE_PROTO_LITE ON  CACHE INTERNAL "")
     set(gRPC_INSTALL        OFF CACHE INTERNAL "")
+    set(gRPC_USE_SYSTEMD    OFF CACHE INTERNAL "")
+    set(gRPC_DOWNLOAD_ARCHIVES OFF CACHE INTERNAL "")
     set(gRPC_CARES_PROVIDER package CACHE INTERNAL "")
     set(gRPC_SSL_PROVIDER   package CACHE INTERNAL "")
     set(gRPC_ZLIB_PROVIDER  package CACHE INTERNAL "")
+
+    set(protobuf_INSTALL OFF CACHE INTERNAL "")
 
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -108,8 +112,8 @@ add_custom_command(
         --plugin protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
         ${PROTOS}
     # remove inconsequential UTF8 check during serialization to aid performance
-    COMMAND sed -i.bak
-        -e [[/    ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(/,/);/d]]
+    COMMAND sed -i.bak -E
+        -e [[/    ::(PROTOBUF_NAMESPACE_ID|google::protobuf)::internal::WireFormatLite::VerifyUtf8String\(/,/\);/d]]
         ${PROTO_SOURCES}
     DEPENDS ${PROTOS} protobuf::protoc gRPC::grpc_cpp_plugin
     VERBATIM)
