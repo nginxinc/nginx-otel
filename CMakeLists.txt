@@ -118,10 +118,10 @@ add_custom_command(
     DEPENDS ${PROTOS} protobuf::protoc gRPC::grpc_cpp_plugin
     VERBATIM)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 if (NGX_OTEL_DEV)
+    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+
     add_compile_options(-Wall -Wtype-limits -Werror)
 endif()
 
