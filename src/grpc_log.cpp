@@ -2,8 +2,8 @@
 
 #include "grpc_log.hpp"
 
-#include <grpc/support/log.h>
 #include <google/protobuf/stubs/common.h>
+#include <grpcpp/grpcpp.h>
 
 #if GOOGLE_PROTOBUF_VERSION < 4022000
 
@@ -36,9 +36,9 @@ private:
 #include <absl/log/initialize.h>
 #include <absl/log/log_sink_registry.h>
 
-class ProtobufLog : absl::LogSink {
+class NgxLogSink : absl::LogSink {
 public:
-    ProtobufLog()
+    NgxLogSink()
     {
         absl::InitializeLog();
         absl::AddLogSink(this);
@@ -46,7 +46,7 @@ public:
         absl::SetStderrThreshold(static_cast<absl::LogSeverity>(100));
     }
 
-    ~ProtobufLog() override { absl::RemoveLogSink(this); }
+    ~NgxLogSink() override { absl::RemoveLogSink(this); }
 
     void Send(const absl::LogEntry& entry) override
     {
@@ -61,11 +61,18 @@ public:
         ngx_str_t message { entry.text_message().size(),
                             (u_char*)entry.text_message().data() };
 
-        ngx_log_error(level, ngx_cycle->log, 0, "OTel/protobuf: %V", &message);
+        ngx_log_error(level, ngx_cycle->log, 0, "OTel/grpc: %V", &message);
     }
 };
 
+typedef NgxLogSink ProtobufLog;
+
 #endif
+
+#if (GRPC_CPP_VERSION_MAJOR < 1) || \
+    (GRPC_CPP_VERSION_MAJOR == 1 && GRPC_CPP_VERSION_MINOR < 65)
+
+#include <grpc/support/log.h>
 
 class GrpcLog {
 public:
@@ -86,6 +93,13 @@ private:
 
     ProtobufLog protoLog;
 };
+
+#else
+
+// newer gRPC implies newer protobuf, and both use Abseil for logging
+typedef NgxLogSink GrpcLog;
+
+#endif
 
 void initGrpcLog()
 {
