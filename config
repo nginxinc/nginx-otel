@@ -119,7 +119,7 @@ END
     rm -rf $NGX_AUTOTEST*
 }
 
-ngx_feature="libre2"
+ngx_feature="re2"
 ngx_feature_name=""
 ngx_feature_run=no
 ngx_feature_incs="#include <re2/re2.h>"
@@ -133,7 +133,7 @@ if [ $ngx_found = no ]; then
 
     # FreeBSD port
 
-    ngx_feature="libre2 in /usr/local/"
+    ngx_feature="re2 in /usr/local/"
     ngx_feature_path="/usr/local/include"
 
     if [ $NGX_RPATH = YES ]; then
@@ -190,14 +190,11 @@ fi
 ngx_feature="protobuf"
 ngx_feature_name=""
 ngx_feature_run=no
-ngx_feature_incs="#include <google/protobuf/stubs/logging.h>"
+ngx_feature_incs="#include <google/protobuf/stubs/common.h>"
 ngx_feature_path="/usr/include"
 ngx_feature_libs="-lprotobuf"
 ngx_feature_test="using namespace google::protobuf;
-                  google::protobuf::LogLevel logLevel;
-		  const char* filename;
-		  int line;
-                  google::protobuf::internal::LogMessage(logLevel, filename, line);"
+                  google::protobuf::internal::VersionString(0);"
 
 autocppfeature
 
