@@ -10,6 +10,11 @@
 #include "trace_context.hpp"
 #include "trace_service_client.hpp"
 
+struct ResourceAttr {
+    ngx_str_t name;
+    ngx_http_complex_value_t value;
+};
+
 class BatchExporter {
 public:
     typedef TraceServiceClient::Request Request;
@@ -112,7 +117,7 @@ public:
     };
 
     BatchExporter(StrView target,
-            size_t batchSize, size_t batchCount, StrView serviceName) :
+            size_t batchSize, size_t batchCount, StrView serviceName, ngx_array_t customResourceAttrs) :
         batchSize(batchSize), client(std::string(target))
     {
         free.reserve(batchCount);
@@ -123,6 +128,15 @@ public:
             auto attr = resourceSpans->mutable_resource()->add_attributes();
             attr->set_key("service.name");
             attr->mutable_value()->set_string_value(std::string(serviceName));
+
+            auto attrs = (ResourceAttr*)customResourceAttrs.elts;
+            for (ngx_uint_t i = 0; i < customResourceAttrs.nelts; i++) {
+                attr = resourceSpans->mutable_resource()->add_attributes();
+                StrView value = StrView((char*)attrs[i].value.value.data, attrs[i].value.value.len);
+                StrView name = StrView((char*)attrs[i].name.data, attrs[i].name.len);
+                attr->set_key(std::string(name));
+                attr->mutable_value()->set_string_value(std::string(value));
+            }
 
             auto scopeSpans = resourceSpans->add_scope_spans();
             scopeSpans->mutable_scope()->set_name("nginx");
