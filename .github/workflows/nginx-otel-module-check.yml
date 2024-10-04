@@ -15,7 +15,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake libc-ares-dev libre2-dev
       - name: Checkout nginx
-        run: hg clone http://hg.nginx.org/nginx/
+        uses: actions/checkout@v4
+        with:
+          repository: nginx/nginx
+          path: nginx
       - name: Configure nginx
         working-directory: nginx
         run: auto/configure --with-compat
@@ -68,16 +71,24 @@ jobs:
           open-telemetry/opentelemetry-collector-releases/releases/download/\
           v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz
           tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
-      - name: Checkout nginx and nginx-test
-        run: |
-          hg clone http://hg.nginx.org/nginx/
-          hg clone http://hg.nginx.org/nginx-tests/
+      - name: Checkout nginx
+        uses: actions/checkout@v4
+        with:
+          repository: nginx/nginx
+          path: nginx
       - name: Build nginx
         working-directory: nginx
         run: |
           auto/configure --with-compat --with-debug --with-http_ssl_module \
                          --with-http_v2_module --with-http_v3_module
           make -j 4
+      - name: Checkout lib from nginx-tests
+        uses: actions/checkout@v4
+        with:
+          repository: nginx/nginx-tests
+          sparse-checkout: |
+            lib
+          path: nginx-tests
       - name: Run tests
         working-directory: tests
         run: |
