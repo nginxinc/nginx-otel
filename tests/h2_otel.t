@@ -47,6 +47,10 @@ http {
         batch_count 1;
     }
 
+	otel_resource_attr {
+		service.namespace 	test;
+	}
+
     otel_service_name test_server;
     otel_trace on;
 
@@ -159,7 +163,7 @@ foreach my $name ('localhost') {
 		or die "Can't create certificate for $name: $!\n";
 }
 
-$t->try_run('no OTel module')->plan(69);
+$t->try_run('no OTel module')->plan(70);
 
 ###############################################################################
 
@@ -211,6 +215,9 @@ is(scalar keys %{$$batch1{scope_spans}}, 5, 'batch1 size - trace on');
 is(get_attr("service.name", "string_value",
 	$$batch0{resource}),
 	'test_server', 'service.name - trace on');
+is(get_attr("service.namespace", "string_value",
+	$$batch0{resource}),
+	'test', 'service.namespace - trace on');
 is($$spans{span0}{name}, '"default_location"', 'span.name - trace on');
 
 #validate http metrics
