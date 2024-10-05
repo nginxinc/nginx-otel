@@ -17,10 +17,9 @@ public:
     typedef std::function<void (Request, Response, grpc::Status)>
         ResponseCb;
 
-    TraceServiceClient(const std::string& target)
+    TraceServiceClient(const std::string& target, const std::shared_ptr<grpc::ChannelCredentials> &creds)
     {
-        auto channel = grpc::CreateChannel(
-            target, grpc::InsecureChannelCredentials());
+        auto channel = grpc::CreateChannel(target, creds);
         channel->GetState(true); // trigger 'connecting' state
 
         stub = TraceService::NewStub(channel);

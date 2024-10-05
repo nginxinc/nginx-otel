@@ -111,9 +111,9 @@ public:
         int attrSize{0};
     };
 
-    BatchExporter(StrView target,
+    BatchExporter(StrView target, const std::shared_ptr<grpc::ChannelCredentials> &creds,
             size_t batchSize, size_t batchCount, StrView serviceName) :
-        batchSize(batchSize), client(std::string(target))
+        batchSize(batchSize), client(std::string(target), creds)
     {
         free.reserve(batchCount);
         while (batchCount-- > 0) {

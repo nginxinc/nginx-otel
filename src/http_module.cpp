@@ -6,9 +6,26 @@
 #include "trace_context.hpp"
 #include "batch_exporter.hpp"
 
+#include <fstream>
+#include <sstream>
+
 extern ngx_module_t gHttpModule;
 
 namespace {
+
+grpc::string readFile(const std::string& filePath) {
+    std::ifstream file(filePath);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filePath);
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    file.close();
+
+    return grpc::string(buffer.str());
+}
 
 struct OtelCtx {
     TraceContext parent;
@@ -17,6 +34,7 @@ struct OtelCtx {
 
 struct MainConf {
     ngx_str_t endpoint;
+    ngx_str_t pemRootCerts;
     ngx_msec_t interval;
     size_t batchSize;
     size_t batchCount;
@@ -102,6 +120,12 @@ ngx_command_t gExporterCommands[] = {
       ngx_conf_set_str_slot,
       0,
       offsetof(MainConf, endpoint) },
+
+    { ngx_string("pem_root_certs"),
+      NGX_CONF_TAKE1,
+      ngx_conf_set_str_slot,
+      0,
+      offsetof(MainConf, pemRootCerts) },
 
     { ngx_string("interval"),
       NGX_CONF_TAKE1,
@@ -536,8 +560,15 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     }
 
     try {
+        auto creds = grpc::InsecureChannelCredentials();
+        if (mcf->pemRootCerts.len) {
+            grpc::SslCredentialsOptions options;
+            options.pem_root_certs = readFile(static_cast<std::string>(toStrView(mcf->pemRootCerts)));
+            creds = grpc::SslCredentials(options);
+        }
         gExporter.reset(new BatchExporter(
             toStrView(mcf->endpoint),
+            creds,
             mcf->batchSize,
             mcf->batchCount,
             toStrView(mcf->serviceName)));
