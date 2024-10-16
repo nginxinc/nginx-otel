@@ -58,9 +58,6 @@ jobs:
           auto/configure --with-compat --with-debug --with-http_ssl_module \
                          --with-http_v2_module --with-http_v3_module
           make -j $(nproc)
-      - name: Install test dependecies
-        working-directory: tests
-        run: pip install -r requirements.txt
       - name: Download otelcol
         uses: robinraju/release-downloader@v1.11
         with:
@@ -69,8 +66,15 @@ jobs:
           fileName: otelcol_0.111.0_linux_amd64.tar.gz
           extract: true
       - name: Run tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
         working-directory: tests
         env:
           TEST_NGINX_GLOBALS: |
             load_module ${{ github.workspace }}/build/ngx_otel_module.so;
-        run: pytest --log-cli-level=debug
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+          pytest --log-cli-level=debug
