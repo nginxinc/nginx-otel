@@ -42,6 +42,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Download module
         uses: actions/download-artifact@v4
         with:
@@ -66,9 +70,6 @@ jobs:
           fileName: otelcol_0.111.0_linux_amd64.tar.gz
           extract: true
       - name: Run tests
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
         working-directory: tests
         env:
           TEST_NGINX_GLOBALS: |
