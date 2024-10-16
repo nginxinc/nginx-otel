@@ -27,50 +27,30 @@ jobs:
       - name: Build module
         working-directory: build
         run: |
-          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
-                -DNGX_OTEL_DEV=ON ..
-          make -j 4
+          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${GITHUB_WORKSPACE}/nginx/objs \
+                -DNGX_OTEL_DEV=ON ${GITHUB_WORKSPACE}
+          make -j $(nproc)
           strip ngx_otel_module.so
       - name: Archive module
         uses: actions/upload-artifact@v4
         with:
           name: nginx-otel-module
           path: build/ngx_otel_module.so
-      - name: Archive protoc and opentelemetry-proto
-        uses: actions/upload-artifact@v4
-        with:
-          name: protoc-opentelemetry-proto
-          path: |
-            build/_deps/grpc-build/third_party/protobuf/protoc
-            build/_deps/otelcpp-src/third_party/opentelemetry-proto
   test-module:
     needs: build-module
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Download module
         uses: actions/download-artifact@v4
         with:
           name: nginx-otel-module
           path: build
-      - name: Download protoc and opentelemetry-proto
-        uses: actions/download-artifact@v4
-        with:
-          name: protoc-opentelemetry-proto
-          path: build/_deps
-      - name: List files
-        run: ls -laR .
-      - name: Fix protoc file permissions
-        run: chmod +x build/_deps/grpc-build/third_party/protobuf/protoc
-      - name: Install perl modules
-        run: sudo cpan IO::Socket::SSL Crypt::Misc
-      - name: Download otelcol
-        run: |
-          curl -LO https://github.com/\
-          open-telemetry/opentelemetry-collector-releases/releases/download/\
-          v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz
-          tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
       - name: Checkout nginx
         uses: actions/checkout@v4
         with:
@@ -81,17 +61,21 @@ jobs:
         run: |
           auto/configure --with-compat --with-debug --with-http_ssl_module \
                          --with-http_v2_module --with-http_v3_module
-          make -j 4
-      - name: Checkout lib from nginx-tests
-        uses: actions/checkout@v4
+          make -j $(nproc)
+      - name: Download otelcol
+        uses: robinraju/release-downloader@v1.11
         with:
-          repository: nginx/nginx-tests
-          sparse-checkout: |
-            lib
-          path: nginx-tests
+          repository: open-telemetry/opentelemetry-collector-releases
+          tag: v0.111.0
+          fileName: otelcol_0.111.0_linux_amd64.tar.gz
+          extract: true
       - name: Run tests
         working-directory: tests
+        env:
+          TEST_NGINX_GLOBALS: |
+            load_module ${{ github.workspace }}/build/ngx_otel_module.so;
         run: |
-          PERL5LIB=../nginx-tests/lib TEST_NGINX_UNSAFE=1 \
-              TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
-              ${PWD}/../build/ngx_otel_module.so;" prove -v .
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+          pytest --log-cli-level=debug
