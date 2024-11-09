@@ -112,7 +112,8 @@ public:
     };
 
     BatchExporter(StrView target,
-            size_t batchSize, size_t batchCount, StrView serviceName) :
+            size_t batchSize, size_t batchCount,
+            const std::map<StrView, StrView>& resourceAttrs) :
         batchSize(batchSize), client(std::string(target))
     {
         free.reserve(batchCount);
@@ -120,9 +121,11 @@ public:
             free.emplace_back();
             auto resourceSpans = free.back().add_resource_spans();
 
-            auto attr = resourceSpans->mutable_resource()->add_attributes();
-            attr->set_key("service.name");
-            attr->mutable_value()->set_string_value(std::string(serviceName));
+            for (auto& attr : resourceAttrs) {
+                auto kv = resourceSpans->mutable_resource()->add_attributes();
+                kv->set_key(std::string(attr.first));
+                kv->mutable_value()->set_string_value(std::string(attr.second));
+            }
 
             auto scopeSpans = resourceSpans->add_scope_spans();
             scopeSpans->mutable_scope()->set_name("nginx");
