@@ -15,13 +15,17 @@ struct OtelCtx {
     TraceContext current;
 };
 
-struct MainConf {
+struct MainConfBase {
     ngx_str_t endpoint;
     ngx_msec_t interval;
     size_t batchSize;
     size_t batchCount;
 
     ngx_str_t serviceName;
+};
+
+struct MainConf : MainConfBase {
+    std::map<StrView, StrView> resourceAttrs;
 };
 
 struct SpanAttr {
@@ -38,6 +42,7 @@ struct LocationConf {
 };
 
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
@@ -59,14 +64,17 @@ ngx_command_t gCommands[] = {
 
     { ngx_string("otel_exporter"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_BLOCK|NGX_CONF_NOARGS,
-      setExporter,
-      NGX_HTTP_MAIN_CONF_OFFSET },
+      setExporter },
+
+    { ngx_string("otel_resource_attr"),
+      NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE2,
+      addResourceAttr },
 
     { ngx_string("otel_service_name"),
       NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       NGX_HTTP_MAIN_CONF_OFFSET,
-      offsetof(MainConf, serviceName) },
+      offsetof(MainConfBase, serviceName) },
 
     { ngx_string("otel_trace"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -101,25 +109,25 @@ ngx_command_t gExporterCommands[] = {
       NGX_CONF_TAKE1,
       ngx_conf_set_str_slot,
       0,
-      offsetof(MainConf, endpoint) },
+      offsetof(MainConfBase, endpoint) },
 
     { ngx_string("interval"),
       NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
       0,
-      offsetof(MainConf, interval) },
+      offsetof(MainConfBase, interval) },
 
     { ngx_string("batch_size"),
       NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       0,
-      offsetof(MainConf, batchSize) },
+      offsetof(MainConfBase, batchSize) },
 
     { ngx_string("batch_count"),
       NGX_CONF_TAKE1,
       ngx_conf_set_size_slot,
       0,
-      offsetof(MainConf, batchCount) },
+      offsetof(MainConfBase, batchCount) },
 
       ngx_null_command
 };
@@ -134,6 +142,18 @@ StrView toStrView(ngx_str_t str)
 ngx_str_t toNgxStr(StrView str)
 {
     return ngx_str_t{str.size(), (u_char*)str.data()};
+}
+
+MainConf* getMainConf(ngx_conf_t* cf)
+{
+    return static_cast<MainConf*>(
+        (MainConfBase*)ngx_http_conf_get_module_main_conf(cf, gHttpModule));
+}
+
+MainConf* getMainConf(ngx_cycle_t* cycle)
+{
+    return static_cast<MainConf*>(
+        (MainConfBase*)ngx_http_cycle_get_module_main_conf(cycle, gHttpModule));
 }
 
 LocationConf* getLocationConf(ngx_http_request_t* r)
@@ -527,8 +547,7 @@ ngx_int_t initModule(ngx_conf_t* cf)
 
 ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
 {
-    auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
-        cycle, gHttpModule);
+    auto mcf = getMainConf(cycle);
 
     // no 'http' or 'otel_exporter' blocks
     if (mcf == NULL || mcf->endpoint.len == 0) {
@@ -540,7 +559,7 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
             toStrView(mcf->endpoint),
             mcf->batchSize,
             mcf->batchCount,
-            toStrView(mcf->serviceName)));
+            mcf->resourceAttrs));
     } catch (const std::exception& e) {
         ngx_log_error(NGX_LOG_CRIT, cycle->log, 0,
             "OTel worker init error: %s", e.what());
@@ -561,8 +580,7 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
                 "OTel flush error: %s", e.what());
         }
 
-        auto mcf = (MainConf*)ngx_http_cycle_get_module_main_conf(
-            ngx_cycle, gHttpModule);
+        auto mcf = getMainConf((ngx_cycle_t*)ngx_cycle);
 
         ngx_add_timer(ev, mcf->interval);
     };
@@ -590,7 +608,7 @@ void exitWorkerProcess(ngx_cycle_t* cycle)
 
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 {
-    auto mcf = (MainConf*)conf;
+    auto mcf = getMainConf(cf);
 
     if (mcf->endpoint.len) {
         return (char*)"is duplicate";
@@ -649,31 +667,64 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     return NGX_CONF_OK;
 }
 
+char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto mcf = getMainConf(cf);
+
+    try {
+        auto args = (ngx_str_t*)cf->args->elts;
+        mcf->resourceAttrs[toStrView(args[1])] = toStrView(args[2]);
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "OTel: %s", e.what());
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
 void* createMainConf(ngx_conf_t* cf)
 {
-    auto mcf = (MainConf*)ngx_pcalloc(cf->pool, sizeof(MainConf));
-    if (mcf == NULL) {
+    auto cln = ngx_pool_cleanup_add(cf->pool, sizeof(MainConf));
+    if (cln == NULL) {
         return NULL;
     }
+
+    MainConf* mcf;
+    try {
+        mcf = new (cln->data) MainConf{};
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "OTel: %s", e.what());
+        return NULL;
+    }
+
+    cln->handler = [](void* data) {
+        ((MainConf*)data)->~MainConf();
+    };
 
     mcf->interval = NGX_CONF_UNSET_MSEC;
     mcf->batchSize = NGX_CONF_UNSET_SIZE;
     mcf->batchCount = NGX_CONF_UNSET_SIZE;
 
-    return mcf;
+    return static_cast<MainConfBase*>(mcf);
 }
 
 char* initMainConf(ngx_conf_t* cf, void* conf)
 {
     auto mcf = (MainConf*)conf;
 
-
     ngx_conf_init_msec_value(mcf->interval, 5000);
     ngx_conf_init_size_value(mcf->batchSize, 512);
     ngx_conf_init_size_value(mcf->batchCount, 4);
 
-    if (mcf->serviceName.data == NULL) {
-        mcf->serviceName = ngx_string("unknown_service:nginx");
+    try {
+        if (mcf->serviceName.data == NULL) {
+            mcf->resourceAttrs.emplace("service.name", "unknown_service:nginx");
+        } else {
+            mcf->resourceAttrs["service.name"] = toStrView(mcf->serviceName);
+        }
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "OTel: %s", e.what());
+        return (char*)NGX_CONF_ERROR;
     }
 
     return NGX_CONF_OK;
@@ -811,7 +862,7 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
         conf->spanAttrs = prev->spanAttrs;
     }
 
-    auto mcf = (MainConf*)ngx_http_conf_get_module_main_conf(cf, gHttpModule);
+    auto mcf = getMainConf(cf);
 
     if (mcf->endpoint.len == 0 && conf->trace) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
