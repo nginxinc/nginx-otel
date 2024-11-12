@@ -144,6 +144,18 @@ ngx_str_t toNgxStr(StrView str)
     return ngx_str_t{str.size(), (u_char*)str.data()};
 }
 
+bool iremovePrefix(ngx_str_t* str, StrView p)
+{
+    if (str->len >= p.size() &&
+            ngx_strncasecmp(str->data, (u_char*)p.data(), p.size()) == 0) {
+        str->data += p.size();
+        str->len -= p.size();
+        return true;
+    }
+
+    return false;
+}
+
 MainConf* getMainConf(ngx_conf_t* cf)
 {
     return static_cast<MainConf*>(
@@ -656,6 +668,14 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     auto rv = ngx_conf_parse(&cfCopy, NULL);
     if (rv != NGX_CONF_OK) {
         return rv;
+    }
+
+    if (iremovePrefix(&mcf->endpoint, "https://")) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "\"otel_exporter\" doesn't support \"https\" endpoints");
+        return (char*)NGX_CONF_ERROR;
+    } else {
+        iremovePrefix(&mcf->endpoint, "http://");
     }
 
     if (mcf->endpoint.len == 0) {
