@@ -17,10 +17,18 @@ public:
     typedef std::function<void (Request, Response, grpc::Status)>
         ResponseCb;
 
-    TraceServiceClient(const std::string& target)
+    TraceServiceClient(const std::string& target, bool ssl,
+        const std::string& trustedCert)
     {
-        auto channel = grpc::CreateChannel(
-            target, grpc::InsecureChannelCredentials());
+        std::shared_ptr<grpc::ChannelCredentials> creds;
+        if (ssl) {
+            grpc::SslCredentialsOptions options;
+            options.pem_root_certs = trustedCert;
+            creds = grpc::SslCredentials(options);
+        } else {
+            creds = grpc::InsecureChannelCredentials();
+        }
+        auto channel = grpc::CreateChannel(target, creds);
         channel->GetState(true); // trigger 'connecting' state
 
         stub = TraceService::NewStub(channel);
