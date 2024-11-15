@@ -111,10 +111,10 @@ public:
         int attrSize{0};
     };
 
-    BatchExporter(StrView target,
+    BatchExporter(StrView target, bool ssl, const std::string& trustedCert,
             size_t batchSize, size_t batchCount,
             const std::map<StrView, StrView>& resourceAttrs) :
-        batchSize(batchSize), client(std::string(target))
+        batchSize(batchSize), client(std::string(target), ssl, trustedCert)
     {
         free.reserve(batchCount);
         while (batchCount-- > 0) {

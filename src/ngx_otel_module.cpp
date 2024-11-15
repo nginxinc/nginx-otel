@@ -6,6 +6,8 @@
 #include "trace_context.hpp"
 #include "batch_exporter.hpp"
 
+#include <fstream>
+
 extern ngx_module_t ngx_otel_module;
 
 namespace {
@@ -26,6 +28,8 @@ struct MainConfBase {
 
 struct MainConf : MainConfBase {
     std::map<StrView, StrView> resourceAttrs;
+    bool ssl;
+    std::string trustedCert;
 };
 
 struct SpanAttr {
@@ -44,6 +48,7 @@ struct LocationConf {
 char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
 
@@ -110,6 +115,10 @@ ngx_command_t gExporterCommands[] = {
       ngx_conf_set_str_slot,
       0,
       offsetof(MainConfBase, endpoint) },
+
+    { ngx_string("trusted_certificate"),
+      NGX_CONF_TAKE1,
+      setTrustedCertificate },
 
     { ngx_string("interval"),
       NGX_CONF_TAKE1,
@@ -569,6 +578,8 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     try {
         gExporter.reset(new BatchExporter(
             toStrView(mcf->endpoint),
+            mcf->ssl,
+            mcf->trustedCert,
             mcf->batchSize,
             mcf->batchCount,
             mcf->resourceAttrs));
@@ -671,9 +682,7 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     }
 
     if (iremovePrefix(&mcf->endpoint, "https://")) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-            "\"otel_exporter\" doesn't support \"https\" endpoints");
-        return (char*)NGX_CONF_ERROR;
+        mcf->ssl = true;
     } else {
         iremovePrefix(&mcf->endpoint, "http://");
     }
@@ -696,6 +705,36 @@ char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
         mcf->resourceAttrs[toStrView(args[1])] = toStrView(args[2]);
     } catch (const std::exception& e) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "OTel: %s", e.what());
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
+    auto path = ((ngx_str_t*)cf->args->elts)[1];
+    auto mcf = getMainConf(cf);
+
+    if (ngx_get_full_name(cf->pool, &cf->cycle->conf_prefix, &path) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    try {
+        std::ifstream file{(const char*)path.data, std::ios::binary};
+        if (!file.is_open()) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
+                "failed to open \"%V\"", &path);
+            return (char*)NGX_CONF_ERROR;
+        }
+        file.exceptions(std::ios::failbit | std::ios::badbit);
+        file.seekg(0, std::ios::end);
+        size_t size = file.tellg();
+        mcf->trustedCert.resize(size);
+        file.seekg(0);
+        file.read(&mcf->trustedCert[0], mcf->trustedCert.size());
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "failed to read \"%V\": %s", &path, e.what());
         return (char*)NGX_CONF_ERROR;
     }
 
