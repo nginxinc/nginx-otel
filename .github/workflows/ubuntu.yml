@@ -1,8 +1,10 @@
 name: Ubuntu build
-run-name: ${{ github.actor }} is triggering pipeline
+
 on:
   push:
-  workflow_dispatch:
+    branches:
+    - main
+  pull_request:
 
 jobs:
   build-module:
