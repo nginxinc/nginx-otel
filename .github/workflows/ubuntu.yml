@@ -1,4 +1,4 @@
-name: nginx-otel-module-check
+name: Ubuntu build
 run-name: ${{ github.actor }} is triggering pipeline
 on:
   push:
