@@ -168,13 +168,13 @@ bool iremovePrefix(ngx_str_t* str, StrView p)
 MainConf* getMainConf(ngx_conf_t* cf)
 {
     return static_cast<MainConf*>(
-        (MainConfBase*)ngx_http_conf_get_module_main_conf(cf, gHttpModule));
+        (MainConfBase*)ngx_http_conf_get_module_main_conf(cf, ngx_otel_module));
 }
 
 MainConf* getMainConf(ngx_cycle_t* cycle)
 {
     return static_cast<MainConf*>(
-        (MainConfBase*)ngx_http_cycle_get_module_main_conf(cycle, gHttpModule));
+        (MainConfBase*)ngx_http_cycle_get_module_main_conf(cycle, ngx_otel_module));
 }
 
 LocationConf* getLocationConf(ngx_http_request_t* r)
