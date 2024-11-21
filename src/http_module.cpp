@@ -711,7 +711,8 @@ char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     return NGX_CONF_OK;
 }
 
-char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
+char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
     auto path = ((ngx_str_t*)cf->args->elts)[1];
     auto mcf = getMainConf(cf);
 
@@ -727,11 +728,13 @@ char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
             return (char*)NGX_CONF_ERROR;
         }
         file.exceptions(std::ios::failbit | std::ios::badbit);
-        file.seekg(0, std::ios::end);
-        size_t size = file.tellg();
-        mcf->trustedCert.resize(size);
+        file.peek(); // trigger early error for dirs
+
+        size_t size = file.seekg(0, std::ios::end).tellg();
         file.seekg(0);
-        file.read(&mcf->trustedCert[0], mcf->trustedCert.size());
+
+        mcf->trustedCert.resize(size);
+        file.read(&mcf->trustedCert[0], size);
     } catch (const std::exception& e) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
             "failed to read \"%V\": %s", &path, e.what());
