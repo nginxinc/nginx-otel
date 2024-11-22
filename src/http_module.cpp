@@ -576,10 +576,13 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     }
 
     try {
+        Target target;
+        target.endpoint = std::string(toStrView(mcf->endpoint));
+        target.ssl = mcf->ssl;
+        target.trustedCert = mcf->trustedCert;
+
         gExporter.reset(new BatchExporter(
-            toStrView(mcf->endpoint),
-            mcf->ssl,
-            mcf->trustedCert,
+            target,
             mcf->batchSize,
             mcf->batchCount,
             mcf->resourceAttrs));
@@ -772,7 +775,7 @@ void* createMainConf(ngx_conf_t* cf)
 
 char* initMainConf(ngx_conf_t* cf, void* conf)
 {
-    auto mcf = (MainConf*)conf;
+    auto mcf = getMainConf(cf);
 
     ngx_conf_init_msec_value(mcf->interval, 5000);
     ngx_conf_init_size_value(mcf->batchSize, 512);

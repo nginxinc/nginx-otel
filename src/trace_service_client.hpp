@@ -8,6 +8,12 @@
 
 namespace otel_proto_trace = opentelemetry::proto::collector::trace::v1;
 
+struct Target {
+    std::string endpoint;
+    bool ssl;
+    std::string trustedCert;
+};
+
 class TraceServiceClient {
 public:
     typedef otel_proto_trace::ExportTraceServiceRequest Request;
@@ -17,18 +23,18 @@ public:
     typedef std::function<void (Request, Response, grpc::Status)>
         ResponseCb;
 
-    TraceServiceClient(const std::string& target, bool ssl,
-        const std::string& trustedCert)
+    TraceServiceClient(const Target& target)
     {
         std::shared_ptr<grpc::ChannelCredentials> creds;
-        if (ssl) {
+        if (target.ssl) {
             grpc::SslCredentialsOptions options;
-            options.pem_root_certs = trustedCert;
+            options.pem_root_certs = target.trustedCert;
+
             creds = grpc::SslCredentials(options);
         } else {
             creds = grpc::InsecureChannelCredentials();
         }
-        auto channel = grpc::CreateChannel(target, creds);
+        auto channel = grpc::CreateChannel(target.endpoint, creds);
         channel->GetState(true); // trigger 'connecting' state
 
         stub = TraceService::NewStub(channel);
