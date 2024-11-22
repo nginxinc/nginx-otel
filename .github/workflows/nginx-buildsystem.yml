@@ -1,0 +1,81 @@
+name: NGINX Build System (Alpine-based)
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build-module:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jirutka/setup-alpine@v1
+        with:
+          branch: v3.19
+          packages: >
+            cmake
+            g++
+            re2-dev
+            c-ares-dev
+            grpc-dev
+            git
+            protoc
+            make
+            protobuf-dev
+            perl-io-socket-ssl
+            perl-cryptx
+            openssl
+            pcre2-dev
+      - name: Clone dependencies
+        run: |
+          git clone https://github.com/nginx/nginx
+          git clone https://github.com/nginx/nginx-tests
+          git clone https://github.com/open-telemetry/opentelemetry-cpp
+          git clone https://github.com/open-telemetry/opentelemetry-proto
+        shell: alpine.sh {0}
+      - name: Build dependencies
+        working-directory: opentelemetry-cpp
+        run: |
+          cmake \
+          -DCMAKE_CXX_EXTENSIONS=OFF \
+          -DCMAKE_CXX_VISIBILITY_PRESET=hidden \
+          -DCMAKE_POLICY_DEFAULT_CMP0063=NEW \
+          -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prebuilt/ \
+          -DCMAKE_INSTALL_PREFIX:STRING=$GITHUB_WORKSPACE/prebuilt/ \
+          -DCMAKE_INSTALL_LIBDIR:STRING=lib \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -DBUILD_TESTING=OFF \
+          -DWITH_ABSEIL=ON \
+          -DWITH_BENCHMARK=OFF \
+          -DWITH_EXAMPLES=OFF \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          . && make -j $(nproc) install
+        shell: alpine.sh {0}
+      - name: Build module
+        working-directory: nginx
+        run: |
+          NGX_OTEL_PROTO_DIR=$GITHUB_WORKSPACE/opentelemetry-proto/ \
+          CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/prebuilt \
+          ./auto/configure --add-dynamic-module=$GITHUB_WORKSPACE/ \
+          --with-compat \
+          && make -j $(nproc) modules
+        shell: alpine.sh {0}
+      - name: Build nginx
+        working-directory: nginx
+        run: |
+          make -j $(nproc)
+        shell: alpine.sh {0}
+      - name: Download otelcol
+        run: |
+          curl -LO https://github.com/\
+          open-telemetry/opentelemetry-collector-releases/releases/download/\
+          v0.76.1/otelcol_0.76.1_linux_amd64.tar.gz
+          tar -xzf otelcol_0.76.1_linux_amd64.tar.gz
+        shell: alpine.sh {0}
+      - name: Run tests
+        working-directory: nginx-tests
+        run: |
+          PERL5LIB=$GITHUB_WORKSPACE/nginx-tests/lib TEST_NGINX_UNSAFE=1 \
+          TEST_NGINX_VERBOSE=1 TEST_NGINX_GLOBALS="load_module \
+            ${GITHUB_WORKSPACE}/nginx/objs/ngx_otel_module.so;" prove -v .
+        shell: alpine.sh {0}
