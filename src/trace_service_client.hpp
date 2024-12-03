@@ -9,9 +9,24 @@
 namespace otel_proto_trace = opentelemetry::proto::collector::trace::v1;
 
 struct Target {
+    typedef std::vector<std::pair<std::string, std::string>> HeaderVec;
+
     std::string endpoint;
     bool ssl;
     std::string trustedCert;
+    HeaderVec headers;
+
+    static bool validateHeaderName(StrView name)
+    {
+        return grpc_header_key_is_legal(
+            grpc_slice_from_static_buffer(name.data(), name.size()));
+    }
+
+    static bool validateHeaderValue(StrView value)
+    {
+        return grpc_header_nonbin_value_is_legal(
+            grpc_slice_from_static_buffer(value.data(), value.size()));
+    }
 };
 
 class TraceServiceClient {
@@ -23,7 +38,7 @@ public:
     typedef std::function<void (Request, Response, grpc::Status)>
         ResponseCb;
 
-    TraceServiceClient(const Target& target)
+    TraceServiceClient(const Target& target) : headers(target.headers)
     {
         std::shared_ptr<grpc::ChannelCredentials> creds;
         if (target.ssl) {
@@ -43,6 +58,10 @@ public:
     void send(Request& req, ResponseCb cb)
     {
         std::unique_ptr<ActiveCall> call{new ActiveCall{}};
+
+        for (auto& header : headers) {
+            call->context.AddMetadata(header.first, header.second);
+        }
 
         call->request = std::move(req);
         call->cb = std::move(cb);
@@ -112,6 +131,8 @@ private:
 
         ResponseCb cb;
     };
+
+    Target::HeaderVec headers;
 
     std::unique_ptr<TraceService::Stub> stub;
     grpc::CompletionQueue queue;
