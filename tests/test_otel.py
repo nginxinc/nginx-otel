@@ -145,9 +145,9 @@ def simple_client(url, logger):
 
 
 @pytest.fixture
-def batches(spans, http_ver, otel_mode):
+def batches(trace_service_mock, http_ver, otel_mode):
     offset = 6 * http_ver + 3 * otel_mode
-    return spans[offset : offset + 3]
+    return trace_service_mock.spans[offset : offset + 3]
 
 
 @pytest.fixture
@@ -216,7 +216,7 @@ def response(logger, http_ver, otel_mode, url, headers):
     return resp.text
 
 
-@pytest.mark.usefixtures("_mock_otelcol", "_otelcol", "nginx")
+@pytest.mark.usefixtures("trace_service_mock", "_otelcol", "nginx")
 @pytest.mark.parametrize(
     ("nginx_config", "http_ver", "otel_mode"),
     [
