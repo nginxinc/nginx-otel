@@ -29,8 +29,11 @@ jobs:
           make -j $(nproc)
       - name: Build module
         run: |
-          mkdir build && cd build && cmake -DNGX_OTEL_NGINX_BUILD_DIR=\
-          ${PWD}/../nginx/objs -DNGX_OTEL_DEV=ON .. && make -j $(nproc)
+          mkdir build
+          cd build
+          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
+          -DNGX_OTEL_DEV=ON ..
+          make -j $(nproc)
       - name: Download otelcol
         run: |
           curl -sLo - https://github.com/\
