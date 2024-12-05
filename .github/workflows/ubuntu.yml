@@ -41,5 +41,5 @@ jobs:
       - name: Run tests
         run: |
           pytest --maxfail=10 --nginx=nginx/objs/nginx tests
-          pytest --maxfail=10 --nginx=nginx/objs/nginx --otelcol=./otelcol tests
-
+          pytest --maxfail=10 --nginx=nginx/objs/nginx --otelcol=./otelcol \
+          tests
