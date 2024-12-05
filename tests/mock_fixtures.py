@@ -25,7 +25,7 @@ def clear():
 
 @pytest.fixture(scope="module")
 def _mock_otelcol(logger):
-    mock = server(futures.ThreadPoolExecutor(max_workers=10))
+    mock = server(futures.ThreadPoolExecutor())
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(
         TraceService(), mock
     )
