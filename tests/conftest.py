@@ -19,14 +19,10 @@ pytest_plugins = [
 
 
 def pytest_addoption(parser):
-    parser.addoption("--nginx-binary", dest="NGX", default="nginx/objs/nginx")
-    parser.addoption("--nginx-catlog", dest="CATLOG", default="0")
-    parser.addoption(
-        "--module-path",
-        dest="MODULE_PATH",
-        default="build/ngx_otel_module.so",
-    )
-    parser.addoption("--otelcol-binary", dest="OTELCOL", default="./otelcol")
+    parser.addoption("--nginx", default="../nginx/objs/nginx")
+    parser.addoption("--module", default="build/ngx_otel_module.so")
+    parser.addoption("--showlog", action="store_true")
+    parser.addoption("--otelcol")
 
 
 def self_signed_cert(test_dir, name):
@@ -59,10 +55,11 @@ def testdir(tmp_path_factory):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _errorlog(request, logger, testdir):
+def _errorlog(pytestconfig, logger, testdir):
     yield
-    if request.session.testsfailed and (testdir / "error.log").exists():
-        logger.debug((testdir / "error.log").read_text())
+    if pytestconfig.option.showlog:
+        if (testdir / "error.log").exists():
+            logger.debug((testdir / "error.log").read_text())
 
 
 @pytest.fixture(scope="module")
@@ -73,9 +70,9 @@ def nginx_config(request, pytestconfig, testdir, logger):
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log debug;\n"
         + "load_module "
         + (
-            f"{pytestconfig.option.MODULE_PATH};\n"
-            if path.isabs(pytestconfig.option.MODULE_PATH)
-            else f"{pytestconfig.rootdir}/{pytestconfig.option.MODULE_PATH};\n"
+            f"{pytestconfig.option.module};\n"
+            if path.isabs(pytestconfig.option.module)
+            else f"{pytestconfig.rootdir}/{pytestconfig.option.module};\n"
         )
     )
     params["globals_http"] = (
@@ -88,9 +85,9 @@ def nginx_config(request, pytestconfig, testdir, logger):
 
 @pytest.fixture(scope="module")
 def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
-    assert path.exists(pytestconfig.option.NGX), "No nginx binary found"
+    assert path.exists(pytestconfig.option.nginx), "No nginx binary found"
     logger.debug(
-        check_output([pytestconfig.option.NGX, "-V"], stderr=STDOUT).decode(
+        check_output([pytestconfig.option.nginx, "-V"], stderr=STDOUT).decode(
             "utf-8"
         )
     )
@@ -98,7 +95,7 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     logger.info("Starting nginx...")
     proc = Popen(
         [
-            pytestconfig.option.NGX,
+            pytestconfig.option.nginx,
             "-p",
             str(testdir),
             "-c",
@@ -121,10 +118,9 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     except TimeoutExpired:
         proc.kill()
     assert (testdir / "error.log").exists(), "no error.log"
-    log = (testdir / "error.log").read_text()
-    assert "[alert]" not in log, "[alert] in error.log"
-    if pytestconfig.option.CATLOG in ["1", "true"]:
-        logger.debug(log)
+    assert (
+        "[alert]" not in (testdir / "error.log").read_text()
+    ), "[alert] in error.log"
 
 
 @pytest.fixture(scope="module")

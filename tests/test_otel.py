@@ -29,7 +29,7 @@ http {
     ssl_certificate_key localhost.key;
 
     otel_exporter {
-        endpoint 127.0.0.1:{{ port }};
+        endpoint 127.0.0.1:14317;
         interval 1s;
         batch_size 10;
         batch_count 2;
@@ -114,10 +114,10 @@ def span_attr(span, attr, atype):
         return getattr(value, atype)
 
 
-def collect_headers(headers, http_ver, otel_mode):
-    if f"{http_ver}{otel_mode}" not in _headers:
-        _headers[f"{http_ver}{otel_mode}"] = []
-    _headers[f"{http_ver}{otel_mode}"].append(headers)
+def collect_headers(headers, http_ver):
+    if f"http{http_ver}" not in _headers:
+        _headers[f"http{http_ver}"] = []
+    _headers[f"http{http_ver}"].append(headers)
 
 
 def simple_client(url, logger):
@@ -145,9 +145,8 @@ def simple_client(url, logger):
 
 
 @pytest.fixture
-def batches(trace_service_mock, http_ver, otel_mode):
-    offset = 6 * http_ver + 3 * otel_mode
-    return trace_service_mock.spans[offset : offset + 3]
+def batches(trace_service_mock, http_ver):
+    return trace_service_mock.spans[http_ver * 3 : http_ver * 3 + 3]
 
 
 @pytest.fixture
@@ -156,23 +155,27 @@ def span(batches, idx):
 
 
 @pytest.fixture
-def headers(http_ver, otel_mode, idx):
+def headers(http_ver, idx):
     if http_ver:
-        return _headers.get(f"{http_ver}{otel_mode}")[idx]
+        return _headers.get(f"http{http_ver}")[idx]
 
 
 @pytest.fixture(scope="module")
 def _otelcol(pytestconfig, testdir, logger):
+    if pytestconfig.option.otelcol is None:
+        yield
+        return
+
     (testdir / "otel-config.yaml").write_text(
         """receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 127.0.0.1:8317
+        endpoint: 127.0.0.1:14317
 
 exporters:
   otlp/auth:
-    endpoint: 127.0.0.1:4317
+    endpoint: 127.0.0.1:24317
     tls:
       insecure: true
 
@@ -184,10 +187,10 @@ service:
       exporters:
         - otlp/auth"""
     )
-    logger.info("Starting otelcol at 127.0.0.1:8317...")
-    assert path.exists(pytestconfig.option.OTELCOL), "No otelcol binary found"
+    logger.info("Starting otelcol at 127.0.0.1:14317...")
+    assert path.exists(pytestconfig.option.otelcol), "No otelcol binary found"
     proc = Popen(
-        [pytestconfig.option.OTELCOL, "--config", testdir / "otel-config.yaml"]
+        [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
     if proc.poll() is not None:
         raise SubprocessError("Can't start otelcol")
@@ -201,7 +204,7 @@ service:
 
 
 @pytest.fixture
-def response(logger, http_ver, otel_mode, url, headers):
+def response(logger, http_ver, url, headers):
     if http_ver == 0:
         return simple_client(url, logger)
     disable_warnings(exceptions.InsecureRequestWarning)
@@ -212,34 +215,27 @@ def response(logger, http_ver, otel_mode, url, headers):
             port = p_url.port if p_url.port is not None else 8443
             s.quic_cache_layer.add_domain(p_url.hostname, port)
         resp = s.get(url, headers=headers, verify=False)
-    collect_headers(resp.headers, http_ver, otel_mode)
+    collect_headers(resp.headers, http_ver)
     return resp.text
 
 
 @pytest.mark.usefixtures("trace_service_mock", "_otelcol", "nginx")
 @pytest.mark.parametrize(
-    ("nginx_config", "http_ver", "otel_mode"),
+    ("nginx_config", "http_ver"),
     [
-        ({"port": 4317, "name": "test_http0", "mode": "ssl"}, 0, 0),
-        ({"port": 8317, "name": "test_http0", "mode": "ssl"}, 0, 1),
-        ({"port": 4317, "name": "test_http1", "mode": "ssl"}, 1, 0),
-        ({"port": 8317, "name": "test_http1", "mode": "ssl"}, 1, 1),
-        ({"port": 4317, "name": "test_http2", "mode": "ssl http2"}, 2, 0),
-        ({"port": 8317, "name": "test_http2", "mode": "ssl http2"}, 2, 1),
-        ({"port": 4317, "name": "test_http3", "mode": "quic"}, 3, 0),
-        ({"port": 8317, "name": "test_http3", "mode": "quic"}, 3, 1),
+        ({"name": "test_http0", "mode": "ssl"}, 0),
+        ({"name": "test_http1", "mode": "ssl"}, 1),
+        ({"name": "test_http2", "mode": "ssl http2"}, 2),
+        ({"name": "test_http3", "mode": "quic"}, 3),
     ],
     indirect=["nginx_config"],
-    ids=["https 0.9-to mock", "https 0.9-to otelcol"]
-    + ["https-to mock", "https-to otelcol"]
-    + ["http2-to mock", "http2-to otelcol"]
-    + ["quic-to mock", "quic-to otelcol"],
+    ids=["https 0.9", "https", "http2", "quic"],
     scope="module",
 )
 class TestOTelGenerateSpans:
     @classmethod
     def teardown_class(cls):
-        sleep(3)  # wait for sending the last batch to collector
+        sleep(4)  # wait for sending the last batch to collector
 
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
@@ -265,25 +261,22 @@ class TestOTelGenerateSpans:
         ]
         + ["trace-on bulk"] * 10,
     )
-    def test_do_request(
-        self, logger, response, http_ver, otel_mode, url, headers, value
-    ):
+    def test_do_request(self, logger, response, http_ver, url, headers, value):
         assert response == value
 
 
 @pytest.mark.parametrize(
     "http_ver", [0, 1, 2, 3], ids=["https 0.9", "https", "http2", "quic"]
 )
-@pytest.mark.parametrize("otel_mode", [0, 1], ids=["to mock", "to otelcol"])
 class TestOTelSpans:
     @pytest.mark.parametrize(
         ("idx", "value"), enumerate([10] * 3), ids=["batch"] * 3
     )
-    def test_batch_size(self, http_ver, batches, idx, value, otel_mode):
+    def test_batch_size(self, http_ver, batches, idx, value):
         assert len(batches[idx][0].scope_spans[0].spans) == value
 
     @pytest.mark.parametrize("idx", [0, 1, 2], ids=["batch"] * 3)
-    def test_service_name(self, http_ver, batches, idx, otel_mode):
+    def test_service_name(self, http_ver, batches, idx):
         assert (
             span_attr(batches[idx][0].resource, "service.name", "string_value")
         ) == f"test_http{http_ver}"
@@ -300,7 +293,7 @@ class TestOTelSpans:
         ),
         ids=["span"] * 30,
     )
-    def test_span_name(self, http_ver, span, value, idx, otel_mode):
+    def test_span_name(self, http_ver, span, value, idx):
         assert span.name == value
 
     @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
@@ -367,7 +360,7 @@ class TestOTelSpans:
             "net.sock.peer.port",
         ],
     )
-    def test_metrics(self, http_ver, span, idx, name, atype, value, otel_mode):
+    def test_metrics(self, http_ver, span, idx, name, atype, value):
         if name == "net.sock.peer.port":
             assert span_attr(span, name, atype) in value
         else:
@@ -398,9 +391,7 @@ class TestOTelSpans:
             "http.request",
         ],
     )
-    def test_custom_metrics(
-        self, http_ver, span, idx, name, atype, value, otel_mode
-    ):
+    def test_custom_metrics(self, http_ver, span, idx, name, atype, value):
         assert (
             span_attr(span, name, atype).values[0].string_value
             if atype == "array_value"
@@ -423,9 +414,7 @@ class TestOTelSpans:
             "http.request",
         ],
     )
-    def test_no_custom_metrics(
-        self, http_ver, span, idx, name, atype, value, otel_mode
-    ):
+    def test_no_custom_metrics(self, http_ver, span, idx, name, atype, value):
         assert span_attr(span, name, atype) == value
 
     @pytest.mark.parametrize("idx", [0, 1], ids=["no context", "context"])
@@ -444,9 +433,7 @@ class TestOTelSpans:
             "otel_parent_sampled",
         ],
     )
-    def test_variables(
-        self, http_ver, span, headers, name, value, idx, otel_mode
-    ):
+    def test_variables(self, http_ver, span, headers, name, value, idx):
         if http_ver == 0:
             pytest.skip("no headers support")
         assert headers.get(name) == decode_id(span, value[idx])
@@ -468,7 +455,7 @@ class TestOTelSpans:
             "otel_parent_sampled",
         ],
     )
-    def test_no_variables(self, http_ver, headers, name, value, idx, otel_mode):
+    def test_no_variables(self, http_ver, headers, name, value, idx):
         if http_ver == 0:
             pytest.skip("no headers support")
         assert headers.get(name) == value
@@ -503,9 +490,7 @@ class TestOTelSpans:
         ],
         ids=["parent id", "traceparent", "tracestate"],
     )
-    def test_trace_context(
-        self, http_ver, span, headers, name, value, idx, otel_mode
-    ):
+    def test_trace_context(self, http_ver, span, headers, name, value, idx):
         if http_ver == 0:
             pytest.skip("no headers support")
         value = value[idx - 2]  # because idx starts from 2

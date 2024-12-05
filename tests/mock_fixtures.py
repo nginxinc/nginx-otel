@@ -14,16 +14,16 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
 
 
 @pytest.fixture(scope="module")
-def trace_service_mock(logger):
+def trace_service_mock(pytestconfig, logger):
     mock = server(futures.ThreadPoolExecutor())
     trace_service = TraceService()
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(
         trace_service, mock
     )
-    listen_addr = "localhost:4317"
+    listen_addr = f"127.0.0.1:{24317 if pytestconfig.option.otelcol else 14317}"
     mock.add_insecure_port(listen_addr)
     mock.start()
-    logger.info(f"Starting otelcol mock at {listen_addr}...")
+    logger.info(f"Starting trace server mock at {listen_addr}...")
     yield trace_service
-    logger.info("Stopping otelcol mock...")
+    logger.info("Stopping trace server mock...")
     mock.stop(grace=None)
