@@ -1,7 +1,7 @@
 from jinja2 import Environment
 from logging import basicConfig, getLogger, INFO
 from OpenSSL import crypto
-from os import getenv, path
+from os import path
 import pytest
 from subprocess import (
     check_output,
@@ -20,15 +20,15 @@ pytest_plugins = [
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--nginx-binary", dest="NGX", default="../nginx/objs/nginx"
+        "--nginx-binary", dest="NGX", default="nginx/objs/nginx"
     )
     parser.addoption("--nginx-catlog", dest="CATLOG", default="0")
     parser.addoption(
         "--module-path",
         dest="MODULE_PATH",
-        default="../build/ngx_otel_module.so",
+        default="build/ngx_otel_module.so",
     )
-    parser.addoption("--otelcol-binary", dest="OTELCOL", default="../otelcol")
+    parser.addoption("--otelcol-binary", dest="OTELCOL", default="./otelcol")
 
 
 def self_signed_cert(test_dir, name):
@@ -77,7 +77,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
         + (
             f"{pytestconfig.option.MODULE_PATH};\n"
             if path.isabs(pytestconfig.option.MODULE_PATH)
-            else f"{getenv('PWD')}/{pytestconfig.option.MODULE_PATH};\n"
+            else f"{pytestconfig.rootdir}/{pytestconfig.option.MODULE_PATH};\n"
         )
     )
     params["globals_http"] = (
