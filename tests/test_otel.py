@@ -248,18 +248,38 @@ class TestOTelGenerateSpans:
             ("https://127.0.0.1:8443/context-extract", ""),
             ("https://127.0.0.1:8443/context-inject", ""),
             ("https://127.0.0.1:8443/context-propagate", ""),
-            ("https://127.0.0.1:8443/204", ""),
-        ]
-        + [("https://127.0.0.1:8443/", "TRACE-ON")] * 10,
+        ],
         ids=[
-            "trace-on",
-            "context-ignore",
-            "context-extract",
-            "context-inject",
-            "context-propagate",
-            "trace-off",
-        ]
-        + ["trace-on bulk"] * 10,
+            "trace on",
+            "context ignore",
+            "context extract",
+            "context inject",
+            "context propagate",
+        ],
+    )
+    def test_make_batch0(self, logger, response, http_ver, url, headers, value):
+        assert response == value
+
+    @pytest.mark.parametrize(
+        ("url", "value", "headers"),
+        [("https://127.0.0.1:8443/", "TRACE-ON", None)] * 10,
+        ids=["trace on"] * 10,
+    )
+    def test_make_batch1(self, logger, response, http_ver, url, headers, value):
+        assert response == value
+
+    @pytest.mark.parametrize(
+        ("url", "value", "headers"),
+        [("https://127.0.0.1:8443/", "TRACE-ON", None)] * 10,
+        ids=["trace on"] * 10,
+    )
+    def test_make_batch2(self, logger, response, http_ver, url, headers, value):
+        assert response == value
+
+    @pytest.mark.parametrize(
+        ("url", "value", "headers"),
+        [("https://127.0.0.1:8443/204", "", None)],
+        ids=["trace off"],
     )
     def test_do_request(self, logger, response, http_ver, url, headers, value):
         assert response == value
