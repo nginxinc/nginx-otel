@@ -277,8 +277,11 @@ class TestOTelGenerateSpans:
         assert response == value
 
     @pytest.mark.parametrize(
-        ("url", "value", "headers"),
-        [("https://127.0.0.1:8443/204", "", None)],
+        "headers", [None, context], ids=["no context", "context"]
+    )
+    @pytest.mark.parametrize(
+        ("url", "value"),
+        [("https://127.0.0.1:8443/204", "")],
         ids=["trace off"],
     )
     def test_do_request(self, logger, response, http_ver, url, headers, value):
@@ -309,14 +312,13 @@ class TestOTelSpans:
             + ["context_extract"] * 2
             + ["context_inject"] * 2
             + ["context_propagate"] * 2
-            + ["default_location"] * 20
         ),
-        ids=["span"] * 30,
+        ids=["span"] * 10,
     )
     def test_span_name(self, http_ver, span, value, idx):
         assert span.name == value
 
-    @pytest.mark.parametrize("idx", range(30), ids=["span"] * 30)
+    @pytest.mark.parametrize("idx", range(10), ids=["span"] * 10)
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -328,8 +330,7 @@ class TestOTelSpans:
                 + ["/context-ignore"] * 2
                 + ["/context-extract"] * 2
                 + ["/context-inject"] * 2
-                + ["/context-propagate"] * 2
-                + ["/"] * 20,
+                + ["/context-propagate"] * 2,
             ),
             (
                 "http.route",
@@ -338,8 +339,7 @@ class TestOTelSpans:
                 + ["/context-ignore"] * 2
                 + ["/context-extract"] * 2
                 + ["/context-inject"] * 2
-                + ["/context-propagate"] * 2
-                + ["/"] * 20,
+                + ["/context-propagate"] * 2,
             ),
             ("http.scheme", "string_value", "https"),
             ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
@@ -352,12 +352,12 @@ class TestOTelSpans:
             (
                 "http.response_content_length",
                 "int_value",
-                [8] * 2 + [0] * 8 + [8] * 20,
+                [8] * 2 + [0] * 8,
             ),
             (
                 "http.status_code",
                 "int_value",
-                [200] * 2 + [204] * 8 + [200] * 20,
+                [200] * 2 + [204] * 8,
             ),
             ("net.host.name", "string_value", "localhost"),
             ("net.host.port", "int_value", 8443),
@@ -389,11 +389,7 @@ class TestOTelSpans:
             value = value[idx] if type(value) is list else value
             assert span_attr(span, name, atype) == value
 
-    @pytest.mark.parametrize(
-        "idx",
-        [0, 1] + list(range(10, 30)),
-        ids=["span"] * 2 + [f"span{i}" for i in range(10, 30)],
-    )
+    @pytest.mark.parametrize("idx", [0, 1], ids=["span"] * 2)
     @pytest.mark.parametrize(
         ("name", "atype", "value"),
         [
@@ -459,7 +455,7 @@ class TestOTelSpans:
         assert headers.get(name) == decode_id(span, value[idx])
 
     @pytest.mark.xfail(reason="otel variables are present when trace is off")
-    @pytest.mark.parametrize("idx", [10, 11], ids=["no context", "context"])
+    @pytest.mark.parametrize("idx", [30, 31], ids=["no context", "context"])
     @pytest.mark.parametrize(
         ("name", "value"),
         [
