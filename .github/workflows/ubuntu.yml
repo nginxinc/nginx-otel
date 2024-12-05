@@ -27,14 +27,10 @@ jobs:
           auto/configure --with-compat --with-debug --with-http_ssl_module \
                          --with-http_v2_module --with-http_v3_module
           make -j $(nproc)
-      - name: Create build directory
-        run: mkdir build
       - name: Build module
-        working-directory: build
         run: |
-          cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
-                -DNGX_OTEL_DEV=ON ..
-          make -j $(nproc)
+          mkdir build && cd build && cmake -DNGX_OTEL_NGINX_BUILD_DIR=\
+          ${PWD}/../nginx/objs -DNGX_OTEL_DEV=ON .. && make -j $(nproc)
       - name: Download otelcol
         run: |
           curl -sLo - https://github.com/\
