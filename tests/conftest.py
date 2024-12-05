@@ -19,9 +19,7 @@ pytest_plugins = [
 
 
 def pytest_addoption(parser):
-    parser.addoption(
-        "--nginx-binary", dest="NGX", default="nginx/objs/nginx"
-    )
+    parser.addoption("--nginx-binary", dest="NGX", default="nginx/objs/nginx")
     parser.addoption("--nginx-catlog", dest="CATLOG", default="0")
     parser.addoption(
         "--module-path",
