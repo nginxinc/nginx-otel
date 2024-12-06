@@ -61,7 +61,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
     tmpl = jinja2.Environment().from_string(request.module.NGINX_CONFIG)
     params = request.param
     params["globals"] = (
-        f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log debug;\n"
+        f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log notice;\n"
         + f"load_module {os.path.abspath(pytestconfig.option.module)};\n"
     )
     params["globals_http"] = (
