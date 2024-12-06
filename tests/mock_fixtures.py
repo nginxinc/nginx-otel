@@ -22,8 +22,8 @@ def trace_service(pytestconfig, logger):
     )
     listen_addr = f"127.0.0.1:{24317 if pytestconfig.option.otelcol else 14317}"
     mock.add_insecure_port(listen_addr)
-    mock.start()
     logger.info(f"Starting trace server mock at {listen_addr}...")
+    mock.start()
     yield trace_service
     logger.info("Stopping trace server mock...")
     mock.stop(grace=None)
