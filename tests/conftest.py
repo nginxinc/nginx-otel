@@ -106,7 +106,6 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
         proc.wait(timeout=15)
     except subprocess.TimeoutExpired:
         proc.kill()
-    assert (testdir / "error.log").exists(), "no error.log"
     assert (
         "[alert]" not in (testdir / "error.log").read_text()
     ), "[alert] in error.log"
