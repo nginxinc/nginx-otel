@@ -21,6 +21,7 @@ def pytest_addoption(parser):
     parser.addoption("--module", required=True)
     parser.addoption("--showlog", action="store_true")
     parser.addoption("--otelcol")
+    parser.addoption("--globals", default="")
 
 
 def self_signed_cert(test_dir, name):
@@ -64,6 +65,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
     params["globals"] = (
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log notice;\n"
         + f"load_module {os.path.abspath(pytestconfig.option.module)};\n"
+        + pytestconfig.option.globals
     )
     params["http_globals"] = f"root {testdir};\naccess_log off;\n"
     conf = tmpl.render(params)
