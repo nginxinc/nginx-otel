@@ -183,9 +183,7 @@ service:
         - otlp/auth"""
     )
     logger.info("Starting otelcol at 127.0.0.1:14317...")
-    assert os.path.exists(
-        pytestconfig.option.otelcol
-    ), "No otelcol binary found"
+    assert os.path.exists(pytestconfig.option.otelcol), "No otelcol found"
     proc = subprocess.Popen(
         [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
