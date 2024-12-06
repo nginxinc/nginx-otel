@@ -68,12 +68,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
     params = request.param
     params["globals"] = (
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log debug;\n"
-        + "load_module "
-        + (
-            f"{pytestconfig.option.module};\n"
-            if path.isabs(pytestconfig.option.module)
-            else f"{pytestconfig.rootdir}/{pytestconfig.option.module};\n"
-        )
+        + f"load_module {path.abspath(pytestconfig.option.module)};\n"
     )
     params["globals_http"] = (
         f"root {testdir};\naccess_log {testdir}/access.log;\n"
