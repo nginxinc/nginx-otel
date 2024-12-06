@@ -12,6 +12,10 @@ pytest_plugins = [
 ]
 
 
+def pytest_configure():
+    pytest.module_capsys = None
+
+
 def pytest_addoption(parser):
     parser.addoption("--nginx", default="../nginx/objs/nginx")
     parser.addoption("--module", default="build/ngx_otel_module.so")
@@ -43,17 +47,14 @@ def logger():
     return logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def populate_capsys(capsys):
+    pytest.module_capsys = capsys
+
+
 @pytest.fixture(scope="module")
 def testdir(tmp_path_factory):
     return tmp_path_factory.mktemp("nginx")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _errorlog(pytestconfig, logger, testdir):
-    yield
-    if pytestconfig.option.showlog:
-        if (testdir / "error.log").exists():
-            logger.debug((testdir / "error.log").read_text())
 
 
 @pytest.fixture(scope="module")
@@ -64,9 +65,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log notice;\n"
         + f"load_module {os.path.abspath(pytestconfig.option.module)};\n"
     )
-    params["globals_http"] = (
-        f"root {testdir};\naccess_log off;\n"
-    )
+    params["globals_http"] = f"root {testdir};\naccess_log off;\n"
     conf = tmpl.render(params)
     logger.debug(conf)
     return conf
@@ -106,6 +105,10 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     except subprocess.TimeoutExpired:
         proc.kill()
     assert "[alert]" not in (testdir / "error.log").read_text()
+    if pytestconfig.option.showlog:
+        with pytest.module_capsys.disabled():
+            print((testdir / "error.log").read_text())
+    (testdir / "error.log").unlink()
 
 
 @pytest.fixture(scope="module")
