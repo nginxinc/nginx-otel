@@ -185,8 +185,8 @@ service:
     proc = subprocess.Popen(
         [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
-    if proc.poll() is not None:
-        raise subprocess.SubprocessError("Can't start otelcol")
+    assert proc.poll() is None, "Can't start otelcol"
+    time.sleep(1)  # give some time to get ready
     yield
     logger.info("Stopping otelcol...")
     proc.terminate()
@@ -229,7 +229,7 @@ def response(logger, http_ver, scheme, path, headers):
 class TestOTelGenerateSpans:
     @classmethod
     def teardown_class(cls):
-        time.sleep(4)  # wait for sending the last batch to collector
+        time.sleep(3)  # wait for sending the last batch to collector
 
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
