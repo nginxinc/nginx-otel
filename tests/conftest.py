@@ -8,7 +8,7 @@ import time
 
 
 pytest_plugins = [
-    "mock_fixtures",
+    "trace_service",
 ]
 
 
