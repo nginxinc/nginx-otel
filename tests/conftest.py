@@ -17,8 +17,8 @@ def pytest_configure():
 
 
 def pytest_addoption(parser):
-    parser.addoption("--nginx", default="../nginx/objs/nginx")
-    parser.addoption("--module", default="build/ngx_otel_module.so")
+    parser.addoption("--nginx", required=True)
+    parser.addoption("--module", required=True)
     parser.addoption("--showlog", action="store_true")
     parser.addoption("--otelcol")
 

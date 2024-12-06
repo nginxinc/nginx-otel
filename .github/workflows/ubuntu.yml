@@ -43,6 +43,5 @@ jobs:
         run: pip install -r tests/requirements.txt
       - name: Run tests
         run: |
-          pytest --maxfail=10 --nginx=nginx/objs/nginx tests
-          pytest --maxfail=10 --nginx=nginx/objs/nginx --otelcol=./otelcol \
-          tests
+          pytest tests --maxfail=10 --nginx=nginx/objs/nginx \
+                       --module=build/ngx_otel_module.so --otelcol=./otelcol
