@@ -14,7 +14,7 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
 
 
 @pytest.fixture(scope="module")
-def trace_service_mock(pytestconfig, logger):
+def trace_service(pytestconfig, logger):
     mock = grpc.server(concurrent.futures.ThreadPoolExecutor())
     trace_service = TraceService()
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(

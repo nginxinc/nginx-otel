@@ -139,8 +139,8 @@ def simple_client(scheme, port, path, logger):
 
 
 @pytest.fixture
-def batches(trace_service_mock, http_ver):
-    return trace_service_mock.spans[http_ver * 3 : http_ver * 3 + 3]
+def batches(trace_service, http_ver):
+    return trace_service.spans[http_ver * 3 : http_ver * 3 + 3]
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ def response(logger, http_ver, scheme, path, headers):
     return resp.text
 
 
-@pytest.mark.usefixtures("trace_service_mock", "_otelcol", "nginx")
+@pytest.mark.usefixtures("trace_service", "_otelcol", "nginx")
 @pytest.mark.parametrize(
     ("nginx_config", "http_ver", "scheme"),
     [
