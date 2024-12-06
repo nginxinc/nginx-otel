@@ -1,14 +1,13 @@
-from binascii import hexlify
+import binascii
 from conftest import self_signed_cert
-from niquests import __version__ as VERSION
-from niquests import Session
-from os import path
+import niquests
+import os
 import pytest
-from socket import create_connection
-from ssl import CERT_NONE, PROTOCOL_TLS_CLIENT, SSLContext
-from subprocess import Popen, SubprocessError, TimeoutExpired
-from time import sleep
-from urllib3 import disable_warnings, exceptions
+import socket
+import ssl
+import subprocess
+import time
+import urllib3
 
 
 CERTS = [self_signed_cert, "localhost"]
@@ -104,7 +103,7 @@ _headers = {}
 
 def decode_id(span, value):
     if value in ["trace_id", "span_id"]:
-        return hexlify(getattr(span, value)).decode("utf-8")
+        return binascii.hexlify(getattr(span, value)).decode("utf-8")
     return value
 
 
@@ -128,11 +127,11 @@ def simple_client(scheme, port, path, logger):
         logger.debug(f"{http_recv=}")
         return http_recv.decode("utf-8")
 
-    with create_connection(("127.0.0.1", port)) as sock:
+    with socket.create_connection(("127.0.0.1", port)) as sock:
         if scheme == "https":
-            ctx = SSLContext(PROTOCOL_TLS_CLIENT)
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             ctx.check_hostname = False
-            ctx.verify_mode = CERT_NONE
+            ctx.verify_mode = ssl.CERT_NONE
             with ctx.wrap_socket(sock, server_hostname="127.0.0.1") as ssock:
                 recv = do_get(ssock, path)
         else:
@@ -184,18 +183,20 @@ service:
         - otlp/auth"""
     )
     logger.info("Starting otelcol at 127.0.0.1:14317...")
-    assert path.exists(pytestconfig.option.otelcol), "No otelcol binary found"
-    proc = Popen(
+    assert os.path.exists(
+        pytestconfig.option.otelcol
+    ), "No otelcol binary found"
+    proc = subprocess.Popen(
         [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
     if proc.poll() is not None:
-        raise SubprocessError("Can't start otelcol")
+        raise subprocess.SubprocessError("Can't start otelcol")
     yield
     logger.info("Stopping otelcol...")
     proc.terminate()
     try:
         proc.wait(timeout=15)
-    except TimeoutExpired:
+    except subprocess.TimeoutExpired:
         proc.kill()
 
 
@@ -204,8 +205,8 @@ def response(logger, http_ver, scheme, path, headers):
     port = 8443 if scheme == "https" else 8080
     if http_ver == 0:
         return simple_client(scheme, port, path, logger)
-    disable_warnings(exceptions.InsecureRequestWarning)
-    with Session(multiplexed=True) as s:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    with niquests.Session(multiplexed=True) as s:
         if http_ver == 3:
             assert scheme == "https", "Only https:// URLs are supported."
             s.quic_cache_layer.add_domain("127.0.0.1", port)
@@ -232,7 +233,7 @@ def response(logger, http_ver, scheme, path, headers):
 class TestOTelGenerateSpans:
     @classmethod
     def teardown_class(cls):
-        sleep(4)  # wait for sending the last batch to collector
+        time.sleep(4)  # wait for sending the last batch to collector
 
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
@@ -351,7 +352,7 @@ class TestOTelSpans:
             (
                 "http.user_agent",
                 "string_value",
-                [None] + [f"niquests/{VERSION}"] * 3,
+                [None] + [f"niquests/{niquests.__version__}"] * 3,
             ),
             ("http.request_content_length", "int_value", 0),
             (
