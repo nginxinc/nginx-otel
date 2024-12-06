@@ -74,7 +74,6 @@ def nginx_config(request, pytestconfig, testdir, logger):
 
 @pytest.fixture(scope="module")
 def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
-    assert os.path.exists(pytestconfig.option.nginx), "No nginx found"
     logger.debug(
         subprocess.check_output(
             [pytestconfig.option.nginx, "-V"], stderr=subprocess.STDOUT

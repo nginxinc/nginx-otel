@@ -1,7 +1,6 @@
 import binascii
 from conftest import self_signed_cert
 import niquests
-import os
 import pytest
 import socket
 import ssl
@@ -183,7 +182,6 @@ service:
         - otlp/auth"""
     )
     logger.info("Starting otelcol at 127.0.0.1:14317...")
-    assert os.path.exists(pytestconfig.option.otelcol), "No otelcol found"
     proc = subprocess.Popen(
         [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
