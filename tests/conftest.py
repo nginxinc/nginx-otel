@@ -75,11 +75,6 @@ def nginx_config(request, pytestconfig, testdir, logger):
 
 @pytest.fixture(scope="module")
 def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
-    logger.debug(
-        subprocess.check_output(
-            [pytestconfig.option.nginx, "-V"], stderr=subprocess.STDOUT
-        ).decode("utf-8")
-    )
     (testdir / "nginx.conf").write_text(nginx_config)
     logger.info("Starting nginx...")
     proc = subprocess.Popen(
