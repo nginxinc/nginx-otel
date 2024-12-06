@@ -38,7 +38,7 @@ jobs:
         run: |
           curl -sLo - https://github.com/\
           open-telemetry/opentelemetry-collector-releases/releases/download/\
-          v0.115.0/otelcol_0.115.0_linux_amd64.tar.gz | tar -xzv
+          v0.115.1/otelcol_0.115.1_linux_amd64.tar.gz | tar -xzv
       - name: Install test dependencies
         run: pip install -r tests/requirements.txt
       - name: Run tests
