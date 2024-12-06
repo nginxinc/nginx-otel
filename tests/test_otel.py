@@ -222,12 +222,12 @@ def response(logger, http_ver, scheme, path, headers):
     ("nginx_config", "http_ver", "scheme"),
     [
         ({"name": "test_http0", "mode": ""}, 0, "http"),
-        ({"name": "test_http1", "mode": "ssl"}, 1, "https"),
+        ({"name": "test_http1", "mode": ""}, 1, "http"),
         ({"name": "test_http2", "mode": "ssl http2"}, 2, "https"),
         ({"name": "test_http3", "mode": "quic"}, 3, "https"),
     ],
     indirect=["nginx_config"],
-    ids=["http 0.9", "https", "http2", "quic"],
+    ids=["http 0.9", "http 1.1", "http 2.0 ssl", "http 3.0 quic"],
     scope="module",
 )
 class TestOTelGenerateSpans:
@@ -295,7 +295,9 @@ class TestOTelGenerateSpans:
 
 
 @pytest.mark.parametrize(
-    "http_ver", [0, 1, 2, 3], ids=["http 0.9", "https", "http2", "quic"]
+    "http_ver",
+    [0, 1, 2, 3],
+    ids=["http 0.9", "http 1.1", "http 2.0 ssl", "http 3.0 quic"],
 )
 class TestOTelSpans:
     @pytest.mark.parametrize(
@@ -347,7 +349,7 @@ class TestOTelSpans:
                 + ["/context-inject"] * 2
                 + ["/context-propagate"] * 2,
             ),
-            ("http.scheme", "string_value", ["http"] + ["https"] * 3),
+            ("http.scheme", "string_value", ["http"] * 2 + ["https"] * 2),
             ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
             (
                 "http.user_agent",
@@ -366,7 +368,7 @@ class TestOTelSpans:
                 [200] * 2 + [204] * 8,
             ),
             ("net.host.name", "string_value", "localhost"),
-            ("net.host.port", "int_value", [8080] + [8443] * 3),
+            ("net.host.port", "int_value", [8080] * 2 + [8443] * 2),
             ("net.sock.peer.addr", "string_value", "127.0.0.1"),
             ("net.sock.peer.port", "int_value", range(1024, 65536)),
         ],
