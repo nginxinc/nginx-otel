@@ -97,8 +97,7 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     logger.debug(f"pid={proc.pid}")
     while not (testdir / "nginx.pid").exists():
         time.sleep(0.1)
-        if proc.poll() is not None:
-            raise subprocess.SubprocessError("Can't start nginx")
+        assert proc.poll() is None, "Can't start nginx"
     yield proc
     logger.info("Stopping nginx...")
     proc.terminate()
