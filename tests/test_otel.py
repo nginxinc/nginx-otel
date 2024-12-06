@@ -41,8 +41,8 @@ http {
     add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
 
     server {
-        listen       127.0.0.1:8443 {{ mode }};
-        listen       127.0.0.1:8080;
+        listen       127.0.0.1:18443 {{ mode }};
+        listen       127.0.0.1:18080;
         server_name  localhost;
 
         location / {
@@ -58,25 +58,25 @@ http {
 
         location /context-ignore {
             otel_span_name context_ignore;
-            proxy_pass http://127.0.0.1:8080/204;
+            proxy_pass http://127.0.0.1:18080/204;
         }
 
         location /context-extract {
             otel_trace_context extract;
             otel_span_name context_extract;
-            proxy_pass http://127.0.0.1:8080/204;
+            proxy_pass http://127.0.0.1:18080/204;
         }
 
         location /context-inject {
             otel_trace_context inject;
             otel_span_name context_inject;
-            proxy_pass http://127.0.0.1:8080/204;
+            proxy_pass http://127.0.0.1:18080/204;
         }
 
         location /context-propagate {
             otel_trace_context propagate;
             otel_span_name context_propagate;
-            proxy_pass http://127.0.0.1:8080/204;
+            proxy_pass http://127.0.0.1:18080/204;
         }
 
         location /204 {
@@ -198,7 +198,7 @@ service:
 
 @pytest.fixture
 def response(logger, http_ver, scheme, path, headers):
-    port = 8443 if scheme == "https" else 8080
+    port = 18443 if scheme == "https" else 18080
     if http_ver == 0:
         return simple_client(scheme, port, path, logger)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -364,7 +364,7 @@ class TestOTelSpans:
                 [200] * 2 + [204] * 8,
             ),
             ("net.host.name", "string_value", "localhost"),
-            ("net.host.port", "int_value", [8080] * 2 + [8443] * 2),
+            ("net.host.port", "int_value", [18080] * 2 + [18443] * 2),
             ("net.sock.peer.addr", "string_value", "127.0.0.1"),
             ("net.sock.peer.port", "int_value", range(1024, 65536)),
         ],
