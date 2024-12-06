@@ -32,7 +32,7 @@ jobs:
           mkdir build
           cd build
           cmake -DNGX_OTEL_NGINX_BUILD_DIR=${PWD}/../nginx/objs \
-          -DNGX_OTEL_DEV=ON ..
+                -DNGX_OTEL_DEV=ON ..
           make -j $(nproc)
       - name: Download otelcol
         run: |
