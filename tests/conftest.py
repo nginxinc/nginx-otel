@@ -65,7 +65,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
         f"pid {testdir}/nginx.pid;\nerror_log {testdir}/error.log notice;\n"
         + f"load_module {os.path.abspath(pytestconfig.option.module)};\n"
     )
-    params["globals_http"] = f"root {testdir};\naccess_log off;\n"
+    params["http_globals"] = f"root {testdir};\naccess_log off;\n"
     conf = tmpl.render(params)
     logger.debug(conf)
     return conf

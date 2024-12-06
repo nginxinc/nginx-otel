@@ -20,7 +20,7 @@ events {
 }
 
 http {
-    {{ globals_http }}
+    {{ http_globals }}
 
     ssl_certificate localhost.crt;
     ssl_certificate_key localhost.key;
