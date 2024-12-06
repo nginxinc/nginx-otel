@@ -8,7 +8,6 @@ from socket import create_connection
 from ssl import CERT_NONE, PROTOCOL_TLS_CLIENT, SSLContext
 from subprocess import Popen, SubprocessError, TimeoutExpired
 from time import sleep
-from urllib.parse import urlparse
 from urllib3 import disable_warnings, exceptions
 
 
@@ -120,7 +119,7 @@ def collect_headers(headers, http_ver):
     _headers[f"http{http_ver}"].append(headers)
 
 
-def simple_client(url, logger):
+def simple_client(scheme, port, path, logger):
     def do_get(sock, path):
         http_send = f"GET {path}\n".encode()
         logger.debug(f"{http_send=}")
@@ -129,18 +128,15 @@ def simple_client(url, logger):
         logger.debug(f"{http_recv=}")
         return http_recv.decode("utf-8")
 
-    p_url = urlparse(url)
-    port = 8443 if p_url.scheme == "https" else 8080
-    port = p_url.port if p_url.port is not None else port
-    with create_connection((p_url.hostname, port)) as sock:
-        if p_url.scheme == "https":
+    with create_connection(("127.0.0.1", port)) as sock:
+        if scheme == "https":
             ctx = SSLContext(PROTOCOL_TLS_CLIENT)
             ctx.check_hostname = False
             ctx.verify_mode = CERT_NONE
-            with ctx.wrap_socket(sock, server_hostname=p_url.hostname) as ssock:
-                recv = do_get(ssock, p_url.path)
+            with ctx.wrap_socket(sock, server_hostname="127.0.0.1") as ssock:
+                recv = do_get(ssock, path)
         else:
-            recv = do_get(sock, p_url.path)
+            recv = do_get(sock, path)
     return recv
 
 
@@ -204,32 +200,33 @@ service:
 
 
 @pytest.fixture
-def response(logger, http_ver, url, headers):
+def response(logger, http_ver, scheme, path, headers):
+    port = 8443 if scheme == "https" else 8080
     if http_ver == 0:
-        return simple_client(url, logger)
+        return simple_client(scheme, port, path, logger)
     disable_warnings(exceptions.InsecureRequestWarning)
     with Session(multiplexed=True) as s:
         if http_ver == 3:
-            p_url = urlparse(url)
-            assert p_url.scheme == "https", "Only https:// URLs are supported."
-            port = p_url.port if p_url.port is not None else 8443
-            s.quic_cache_layer.add_domain(p_url.hostname, port)
-        resp = s.get(url, headers=headers, verify=False)
+            assert scheme == "https", "Only https:// URLs are supported."
+            s.quic_cache_layer.add_domain("127.0.0.1", port)
+        resp = s.get(
+            f"{scheme}://127.0.0.1:{port}{path}", headers=headers, verify=False
+        )
     collect_headers(resp.headers, http_ver)
     return resp.text
 
 
 @pytest.mark.usefixtures("trace_service_mock", "_otelcol", "nginx")
 @pytest.mark.parametrize(
-    ("nginx_config", "http_ver"),
+    ("nginx_config", "http_ver", "scheme"),
     [
-        ({"name": "test_http0", "mode": "ssl"}, 0),
-        ({"name": "test_http1", "mode": "ssl"}, 1),
-        ({"name": "test_http2", "mode": "ssl http2"}, 2),
-        ({"name": "test_http3", "mode": "quic"}, 3),
+        ({"name": "test_http0", "mode": ""}, 0, "http"),
+        ({"name": "test_http1", "mode": "ssl"}, 1, "https"),
+        ({"name": "test_http2", "mode": "ssl http2"}, 2, "https"),
+        ({"name": "test_http3", "mode": "quic"}, 3, "https"),
     ],
     indirect=["nginx_config"],
-    ids=["https 0.9", "https", "http2", "quic"],
+    ids=["http 0.9", "https", "http2", "quic"],
     scope="module",
 )
 class TestOTelGenerateSpans:
@@ -241,13 +238,13 @@ class TestOTelGenerateSpans:
         "headers", [None, context], ids=["no context", "context"]
     )
     @pytest.mark.parametrize(
-        ("url", "value"),
+        ("path", "value"),
         [
-            ("https://127.0.0.1:8443/", "TRACE-ON"),
-            ("https://127.0.0.1:8443/context-ignore", ""),
-            ("https://127.0.0.1:8443/context-extract", ""),
-            ("https://127.0.0.1:8443/context-inject", ""),
-            ("https://127.0.0.1:8443/context-propagate", ""),
+            ("/", "TRACE-ON"),
+            ("/context-ignore", ""),
+            ("/context-extract", ""),
+            ("/context-inject", ""),
+            ("/context-propagate", ""),
         ],
         ids=[
             "trace on",
@@ -257,39 +254,47 @@ class TestOTelGenerateSpans:
             "context propagate",
         ],
     )
-    def test_make_batch0(self, logger, response, http_ver, url, headers, value):
+    def test_make_batch0(
+        self, logger, response, http_ver, scheme, path, headers, value
+    ):
         assert response == value
 
     @pytest.mark.parametrize(
-        ("url", "value", "headers"),
-        [("https://127.0.0.1:8443/", "TRACE-ON", None)] * 10,
+        ("path", "value", "headers"),
+        [("/", "TRACE-ON", None)] * 10,
         ids=["trace on"] * 10,
     )
-    def test_make_batch1(self, logger, response, http_ver, url, headers, value):
+    def test_make_batch1(
+        self, logger, response, http_ver, scheme, path, headers, value
+    ):
         assert response == value
 
     @pytest.mark.parametrize(
-        ("url", "value", "headers"),
-        [("https://127.0.0.1:8443/", "TRACE-ON", None)] * 10,
+        ("path", "value", "headers"),
+        [("/", "TRACE-ON", None)] * 10,
         ids=["trace on"] * 10,
     )
-    def test_make_batch2(self, logger, response, http_ver, url, headers, value):
+    def test_make_batch2(
+        self, logger, response, http_ver, scheme, path, headers, value
+    ):
         assert response == value
 
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
     )
     @pytest.mark.parametrize(
-        ("url", "value"),
-        [("https://127.0.0.1:8443/204", "")],
+        ("path", "value"),
+        [("/204", "")],
         ids=["trace off"],
     )
-    def test_do_request(self, logger, response, http_ver, url, headers, value):
+    def test_do_request(
+        self, logger, response, http_ver, scheme, path, headers, value
+    ):
         assert response == value
 
 
 @pytest.mark.parametrize(
-    "http_ver", [0, 1, 2, 3], ids=["https 0.9", "https", "http2", "quic"]
+    "http_ver", [0, 1, 2, 3], ids=["http 0.9", "https", "http2", "quic"]
 )
 class TestOTelSpans:
     @pytest.mark.parametrize(
@@ -341,7 +346,7 @@ class TestOTelSpans:
                 + ["/context-inject"] * 2
                 + ["/context-propagate"] * 2,
             ),
-            ("http.scheme", "string_value", "https"),
+            ("http.scheme", "string_value", ["http"] + ["https"] * 3),
             ("http.flavor", "string_value", [None, "1.1", "2.0", "3.0"]),
             (
                 "http.user_agent",
@@ -360,7 +365,7 @@ class TestOTelSpans:
                 [200] * 2 + [204] * 8,
             ),
             ("net.host.name", "string_value", "localhost"),
-            ("net.host.port", "int_value", 8443),
+            ("net.host.port", "int_value", [8080] + [8443] * 3),
             ("net.sock.peer.addr", "string_value", "127.0.0.1"),
             ("net.sock.peer.port", "int_value", range(1024, 65536)),
         ],
@@ -384,7 +389,12 @@ class TestOTelSpans:
         if name == "net.sock.peer.port":
             assert span_attr(span, name, atype) in value
         else:
-            if name in ["http.flavor", "http.user_agent"]:
+            if name in [
+                "http.scheme",
+                "http.flavor",
+                "http.user_agent",
+                "net.host.port",
+            ]:
                 value = value[http_ver]
             value = value[idx] if type(value) is list else value
             assert span_attr(span, name, atype) == value
