@@ -185,8 +185,8 @@ service:
     proc = subprocess.Popen(
         [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
     )
-    assert proc.poll() is None, "Can't start otelcol"
     time.sleep(1)  # give some time to get ready
+    assert proc.poll() is None, "Can't start otelcol"
     yield
     logger.info("Stopping otelcol...")
     proc.terminate()
