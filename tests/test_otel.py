@@ -176,10 +176,12 @@ exporters:
 service:
   pipelines:
     traces:
-      receivers:
-        - otlp
-      exporters:
-        - otlp"""
+      receivers: [otlp]
+      exporters: [otlp]
+  telemetry:
+    metrics:
+      # prevent otelcol from opening 8888 port
+      level: none"""
     )
     logger.info("Starting otelcol at 127.0.0.1:14317...")
     proc = subprocess.Popen(
