@@ -98,7 +98,7 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     logger.info("Stopping nginx...")
     proc.terminate()
     try:
-        proc.wait(timeout=15)
+        proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
     assert "[alert]" not in (testdir / "error.log").read_text()

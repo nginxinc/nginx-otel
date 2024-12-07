@@ -193,7 +193,7 @@ service:
     logger.info("Stopping otelcol...")
     proc.terminate()
     try:
-        proc.wait(timeout=15)
+        proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
 
