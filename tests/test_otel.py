@@ -168,7 +168,7 @@ def _otelcol(pytestconfig, testdir, logger):
         endpoint: 127.0.0.1:14317
 
 exporters:
-  otlp/auth:
+  otlp:
     endpoint: 127.0.0.1:24317
     tls:
       insecure: true
@@ -179,7 +179,7 @@ service:
       receivers:
         - otlp
       exporters:
-        - otlp/auth"""
+        - otlp"""
     )
     logger.info("Starting otelcol at 127.0.0.1:14317...")
     proc = subprocess.Popen(
