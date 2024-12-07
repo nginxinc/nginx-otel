@@ -33,7 +33,7 @@ http {
     }
 
     otel_trace on;
-    otel_service_name {{ name }};
+    otel_service_name test_service;
 
     add_header "X-Otel-Trace-Id" $otel_trace_id;
     add_header "X-Otel-Span-Id" $otel_span_id;
@@ -41,8 +41,13 @@ http {
     add_header "X-Otel-Parent-Sampled" $otel_parent_sampled;
 
     server {
-        listen       127.0.0.1:18443 {{ mode }};
+        listen       127.0.0.1:18443 ssl;
+        listen       127.0.0.1:18443 quic;
         listen       127.0.0.1:18080;
+
+        http2 on;
+        http3 on;
+
         server_name  localhost;
 
         location / {
@@ -217,14 +222,13 @@ def response(logger, http_ver, scheme, path, headers):
 
 @pytest.mark.usefixtures("trace_service", "_otelcol", "nginx")
 @pytest.mark.parametrize(
-    ("nginx_config", "http_ver", "scheme"),
+    ("http_ver", "scheme"),
     [
-        ({"name": "test_http0", "mode": ""}, 0, "http"),
-        ({"name": "test_http1", "mode": ""}, 1, "http"),
-        ({"name": "test_http2", "mode": "ssl http2"}, 2, "https"),
-        ({"name": "test_http3", "mode": "quic"}, 3, "https"),
+        (0, "http"),
+        (1, "http"),
+        (2, "https"),
+        (3, "https"),
     ],
-    indirect=["nginx_config"],
     ids=["http 0.9", "http 1.1", "http 2.0 ssl", "http 3.0 quic"],
     scope="module",
 )
@@ -308,7 +312,7 @@ class TestOTelSpans:
     def test_service_name(self, http_ver, batches, idx):
         assert (
             span_attr(batches[idx][0].resource, "service.name", "string_value")
-        ) == f"test_http{http_ver}"
+        ) == "test_service"
 
     @pytest.mark.parametrize(
         ("idx", "value"),

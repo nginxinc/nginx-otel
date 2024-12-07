@@ -61,7 +61,7 @@ def testdir(tmp_path_factory):
 @pytest.fixture(scope="module")
 def nginx_config(request, pytestconfig, testdir, logger):
     tmpl = jinja2.Environment().from_string(request.module.NGINX_CONFIG)
-    params = request.param
+    params = request.param if hasattr(request, "param") else {}
     params["globals"] = (
         f"pid {testdir}/nginx.pid;\n"
         + f"error_log {testdir}/error.log notice;\n"
@@ -105,7 +105,7 @@ def nginx(testdir, pytestconfig, nginx_config, _certs, logger):
     if pytestconfig.option.showlog:
         with pytest.module_capsys.disabled():
             print((testdir / "error.log").read_text())
-    (testdir / "error.log").unlink()
+        (testdir / "error.log").unlink()
 
 
 @pytest.fixture(scope="module")
