@@ -4,7 +4,6 @@ import niquests
 import pytest
 import socket
 import ssl
-import subprocess
 import time
 import urllib3
 
@@ -46,7 +45,6 @@ http {
         listen       127.0.0.1:18080;
 
         http2 on;
-        http3 on;
 
         server_name  localhost;
 
@@ -159,50 +157,6 @@ def headers(http_ver, idx):
         return _headers.get(f"http{http_ver}")[idx]
 
 
-@pytest.fixture(scope="module")
-def _otelcol(pytestconfig, testdir, logger):
-    if pytestconfig.option.otelcol is None:
-        yield
-        return
-
-    (testdir / "otel-config.yaml").write_text(
-        """receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 127.0.0.1:14317
-
-exporters:
-  otlp:
-    endpoint: 127.0.0.1:24317
-    tls:
-      insecure: true
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [otlp]
-  telemetry:
-    metrics:
-      # prevent otelcol from opening 8888 port
-      level: none"""
-    )
-    logger.info("Starting otelcol at 127.0.0.1:14317...")
-    proc = subprocess.Popen(
-        [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
-    )
-    time.sleep(1)  # give some time to get ready
-    assert proc.poll() is None, "Can't start otelcol"
-    yield
-    logger.info("Stopping otelcol...")
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-
-
 @pytest.fixture
 def response(logger, http_ver, scheme, path, headers):
     port = 18443 if scheme == "https" else 18080
@@ -220,7 +174,7 @@ def response(logger, http_ver, scheme, path, headers):
     return resp.text
 
 
-@pytest.mark.usefixtures("trace_service", "_otelcol", "nginx")
+@pytest.mark.usefixtures("trace_service", "otelcol", "nginx")
 @pytest.mark.parametrize(
     ("http_ver", "scheme"),
     [
@@ -230,7 +184,7 @@ def response(logger, http_ver, scheme, path, headers):
         (3, "https"),
     ],
     ids=["http 0.9", "http 1.1", "http 2.0 ssl", "http 3.0 quic"],
-    scope="module",
+    scope="class",
 )
 class TestOTelGenerateSpans:
     @classmethod

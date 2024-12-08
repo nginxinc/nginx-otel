@@ -3,6 +3,8 @@ import grpc
 from opentelemetry.proto.collector.trace.v1 import trace_service_pb2
 from opentelemetry.proto.collector.trace.v1 import trace_service_pb2_grpc
 import pytest
+import subprocess
+import time
 
 
 class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
@@ -27,3 +29,47 @@ def trace_service(pytestconfig, logger):
     yield trace_service
     logger.info("Stopping trace service...")
     server.stop(grace=None)
+
+
+@pytest.fixture(scope="module")
+def otelcol(pytestconfig, testdir, logger):
+    if pytestconfig.option.otelcol is None:
+        yield
+        return
+
+    (testdir / "otel-config.yaml").write_text(
+        """receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:14317
+
+exporters:
+  otlp:
+    endpoint: 127.0.0.1:24317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp]
+  telemetry:
+    metrics:
+      # prevent otelcol from opening 8888 port
+      level: none"""
+    )
+    logger.info("Starting otelcol at 127.0.0.1:14317...")
+    proc = subprocess.Popen(
+        [pytestconfig.option.otelcol, "--config", testdir / "otel-config.yaml"]
+    )
+    time.sleep(1)  # give some time to get ready
+    assert proc.poll() is None, "Can't start otelcol"
+    yield
+    logger.info("Stopping otelcol...")
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
