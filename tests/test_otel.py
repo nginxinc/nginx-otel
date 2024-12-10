@@ -155,12 +155,15 @@ def batches(trace_service):
         time.sleep(0.1)
     else:
         assert len(trace_service.spans) > 0, "No spans received"
-    return trace_service.spans
+    yield trace_service.spans
+    trace_service.spans.clear()
 
 
 @pytest.fixture
 def span(batches):
-    return (batches.pop())[0].scope_spans[0].spans[0]
+    assert len(batches) == 1, "Expect 1 batch"
+    assert len(batches[0][0].scope_spans[0].spans) == 1, "Expect 1 span"
+    return batches[0][0].scope_spans[0].spans[0]
 
 
 @pytest.fixture
@@ -360,10 +363,9 @@ class TestOtel:
 
         time.sleep(1)  # wait for the rest batches
         assert len(batches) == nbatch
-        for i, b in enumerate(batches):
+        for i, batch in enumerate(batches):
             assert (
-                get_attr(b[0].resource, "service.name", "string_value")
+                get_attr(batch[0].resource, "service.name", "string_value")
                 == "test_service"
             )
-            assert len(b[0].scope_spans[0].spans) == nspan[i]
-        batches.clear()  # clean up spans
+            assert len(batch[0].scope_spans[0].spans) == nspan[i]
