@@ -191,21 +191,21 @@ def nresponses(logger, http_ver, scheme, path, headers, n):
     ids=["http 0.9", "http 1.1", "http 2.0 ssl", "http 3.0 quic"],
 )
 @pytest.mark.parametrize(
-    ("path", "headers", "text", "status", "idx"),
+    ("path", "headers", "text", "status"),
     [
-        ("/", None, "TRACE-ON", 200, 0),
-        ("/404", None, "404 Not Found", 404, 1),
+        ("/", None, "TRACE-ON", 200),
+        ("/404", None, "404 Not Found", 404),
     ],
     ids=["ok", "error"],
 )
 def test_response_and_span_attributes(
-    http_ver, scheme, path, text, status, idx, response, span
+    http_ver, scheme, path, text, status, response, span
 ):
     assert text in (response.text if http_ver else response)
     if http_ver:
         assert response.status_code == status
 
-    assert span.name == ["default_location", "/404"][idx]
+    assert span.name == ("default_location" if path == "/" else "/404")
 
     # Default span attributes
     assert get_attr(span, "http.method", "string_value") == "GET"
@@ -234,20 +234,19 @@ def test_response_and_span_attributes(
 
     # Custom span attributes
     assert get_attr(span, "http.request.completion", "string_value") == (
-        ["OK", None][idx]
+        "OK" if path == "/" else None
     )
     assert (
         get_attr(span, "http.response.header.content.type", "array_value")
-        if idx
-        else get_attr(span, "http.response.header.content.type", "array_value")
         .values[0]
         .string_value
-    ) == ["text/plain", None][idx]
+        if path == "/"
+        else get_attr(span, "http.response.header.content.type", "array_value")
+    ) == ("text/plain" if path == "/" else None)
     assert get_attr(span, "http.request", "string_value") == (
-        [
-            "GET /" + ["", " HTTP/1.1", " HTTP/2.0", " HTTP/3.0"][http_ver],
-            None,
-        ][idx]
+        "GET /" + ["", " HTTP/1.1", " HTTP/2.0", " HTTP/3.0"][http_ver]
+        if path == "/"
+        else None
     )
 
 
