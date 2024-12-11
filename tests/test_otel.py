@@ -256,7 +256,7 @@ def test_response_and_span_attributes(
     ("http_ver", "scheme"), [(1, "http")], ids=["http 1.1"]
 )
 class TestOtel:
-    @pytest.mark.parametrize(("path", "text"), [("/", "TRACE-ON")], ids=["/"])
+    @pytest.mark.parametrize("path", ["/"], ids=["trace on"])
     @pytest.mark.parametrize(
         ("headers", "tid", "sid", "pid", "ps"),
         [
@@ -265,8 +265,8 @@ class TestOtel:
         ],
         ids=["no context", "context"],
     )
-    def test_variables(self, tid, sid, pid, ps, text, response, span):
-        assert text in response.text
+    def test_variables(self, tid, sid, pid, ps, response, span):
+        assert response.text == "TRACE-ON"
         assert response.status_code == 200
 
         assert response.headers["X-Otel-Trace-Id"] == decode_id(span, tid)
@@ -274,13 +274,16 @@ class TestOtel:
         assert response.headers.get("X-Otel-Parent-Id") == pid
         assert response.headers["X-Otel-Parent-Sampled"] == ps
 
-    @pytest.mark.parametrize(("path", "text"), [("/204", "")], ids=["/204"])
+    @pytest.mark.parametrize("path", ["/204"], ids=["trace off"])
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
     )
-    def test_no_variables(self, text, response):
-        assert text in response.text
+    def test_no_variables(self, response, trace_service):
+        assert response.text == ""
         assert response.status_code == 204
+
+        time.sleep(2)  # wait for spans
+        assert len(trace_service.spans) == 0
 
         assert response.headers.get("X-Otel-Trace-Id") is None
         assert response.headers.get("X-Otel-Span-Id") is None
@@ -288,32 +291,28 @@ class TestOtel:
         assert response.headers.get("X-Otel-Parent-Sampled") is None
 
     @pytest.mark.parametrize(
-        ("path", "text", "pid", "tparent", "tstate"),
+        ("path", "pid", "tparent", "tstate"),
         [
             (
                 "/context-ignore",
-                "",
                 [None, None],
                 [None, context["Traceparent"]],
                 [None, context["Tracestate"]],
             ),
             (
                 "/context-extract",
-                "",
                 [None, span_id],
                 [None, context["Traceparent"]],
                 [None, context["Tracestate"]],
             ),
             (
                 "/context-inject",
-                "",
                 [None, None],
                 ["00-trace_id-span_id-01", "00-trace_id-span_id-01"],
                 [None, None],
             ),
             (
                 "/context-propagate",
-                "",
                 [None, span_id],
                 ["00-trace_id-span_id-01", f"00-{trace_id}-span_id-01"],
                 [None, context["Tracestate"]],
@@ -326,10 +325,8 @@ class TestOtel:
         [(None, 0), (context, 1)],
         ids=["no context", "context"],
     )
-    def test_trace_context(
-        self, idx, text, pid, tparent, tstate, response, span
-    ):
-        assert text in response.text
+    def test_trace_context(self, idx, pid, tparent, tstate, response, span):
+        assert response.text == ""
         assert response.status_code == 204
 
         # Validate headers
@@ -342,8 +339,8 @@ class TestOtel:
         assert response.headers.get("X-Otel-Tracestate") == tstate[idx]
 
     @pytest.mark.parametrize(
-        ("path", "headers", "text", "status", "n"),
-        [("/", None, "TRACE-ON", 200, 3)],
+        ("path", "headers", "n"),
+        [("/", None, 3)],
         ids=["3 requests"],
     )
     @pytest.mark.parametrize(
@@ -356,10 +353,10 @@ class TestOtel:
         ids=["batch_size 2", "batch_size 3"],
         scope="module",
     )
-    def test_batches(self, text, status, nresponses, batches, nbatch, nspan):
+    def test_batches(self, nresponses, batches, nbatch, nspan):
         for r in nresponses:
-            assert text in r.text
-            assert r.status_code == status
+            assert r.text == "TRACE-ON"
+            assert r.status_code == 200
 
         time.sleep(1)  # wait for the rest batches
         assert len(batches) == nbatch
