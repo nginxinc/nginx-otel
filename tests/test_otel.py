@@ -254,8 +254,7 @@ def test_response_and_span_attributes(
 @pytest.mark.parametrize(
     ("http_ver", "scheme"), [(1, "http")], ids=["http 1.1"]
 )
-class TestOtel:
-    @pytest.mark.parametrize("path", ["/"], ids=["trace on"])
+class TestOneHttpVersion:
     @pytest.mark.parametrize(
         ("headers", "tid", "sid", "pid", "ps"),
         [
@@ -264,6 +263,7 @@ class TestOtel:
         ],
         ids=["no context", "context"],
     )
+    @pytest.mark.parametrize("path", ["/"], ids=["trace on"])
     def test_variables(self, tid, sid, pid, ps, response, span):
         assert response.text == "TRACE-ON"
         assert response.status_code == 200
@@ -273,10 +273,10 @@ class TestOtel:
         assert response.headers.get("X-Otel-Parent-Id") == pid
         assert response.headers["X-Otel-Parent-Sampled"] == ps
 
-    @pytest.mark.parametrize("path", ["/204"], ids=["trace off"])
     @pytest.mark.parametrize(
         "headers", [None, context], ids=["no context", "context"]
     )
+    @pytest.mark.parametrize("path", ["/204"], ids=["trace off"])
     def test_no_variables(self, response, trace_service):
         assert response.text == ""
         assert response.status_code == 204
@@ -289,6 +289,11 @@ class TestOtel:
         assert response.headers.get("X-Otel-Parent-Id") is None
         assert response.headers.get("X-Otel-Parent-Sampled") is None
 
+    @pytest.mark.parametrize(
+        ("headers", "idx"),
+        [(None, 0), (context, 1)],
+        ids=["no context", "context"],
+    )
     @pytest.mark.parametrize(
         ("path", "pid", "tparent", "tstate"),
         [
@@ -318,11 +323,6 @@ class TestOtel:
             ),
         ],
         ids=["ignore", "extract", "inject", "propagate"],
-    )
-    @pytest.mark.parametrize(
-        ("headers", "idx"),
-        [(None, 0), (context, 1)],
-        ids=["no context", "context"],
     )
     def test_trace_context(self, idx, pid, tparent, tstate, response, span):
         assert response.text == ""
