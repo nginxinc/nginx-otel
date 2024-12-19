@@ -30,6 +30,7 @@ struct MainConf : MainConfBase {
     std::map<StrView, StrView> resourceAttrs;
     bool ssl;
     std::string trustedCert;
+    Target::HeaderVec headers;
 };
 
 struct SpanAttr {
@@ -49,6 +50,7 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* addExporterHeader(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
 
@@ -119,6 +121,10 @@ ngx_command_t gExporterCommands[] = {
     { ngx_string("trusted_certificate"),
       NGX_CONF_TAKE1,
       setTrustedCertificate },
+
+    { ngx_string("header"),
+      NGX_CONF_TAKE2,
+      addExporterHeader },
 
     { ngx_string("interval"),
       NGX_CONF_TAKE1,
@@ -576,10 +582,14 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
     }
 
     try {
+        Target target;
+        target.endpoint = std::string(toStrView(mcf->endpoint));
+        target.ssl = mcf->ssl;
+        target.trustedCert = mcf->trustedCert;
+        target.headers = mcf->headers;
+
         gExporter.reset(new BatchExporter(
-            toStrView(mcf->endpoint),
-            mcf->ssl,
-            mcf->trustedCert,
+            target,
             mcf->batchSize,
             mcf->batchCount,
             mcf->resourceAttrs));
@@ -648,7 +658,7 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
                 continue;
             }
 
-            if (cf->args->nelts != 2) {
+            if (cf->args->nelts != static_cast<unsigned>(ffs(cmd->type))) {
                 ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                     "invalid number of arguments in \"%V\" "
                     "directive of \"otel_exporter\"", name);
@@ -711,7 +721,8 @@ char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
     return NGX_CONF_OK;
 }
 
-char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
+char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
     auto path = ((ngx_str_t*)cf->args->elts)[1];
     auto mcf = getMainConf(cf);
 
@@ -727,14 +738,43 @@ char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf) {
             return (char*)NGX_CONF_ERROR;
         }
         file.exceptions(std::ios::failbit | std::ios::badbit);
-        file.seekg(0, std::ios::end);
-        size_t size = file.tellg();
-        mcf->trustedCert.resize(size);
+        file.peek(); // trigger early error for dirs
+
+        size_t size = file.seekg(0, std::ios::end).tellg();
         file.seekg(0);
-        file.read(&mcf->trustedCert[0], mcf->trustedCert.size());
+
+        mcf->trustedCert.resize(size);
+        file.read(&mcf->trustedCert[0], size);
     } catch (const std::exception& e) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
             "failed to read \"%V\": %s", &path, e.what());
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* addExporterHeader(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto args = (ngx_str_t*)cf->args->elts;
+
+    // don't force on users lower case name requirement of gRPC
+    ngx_strlow(args[1].data, args[1].data, args[1].len);
+
+    try {
+        // validate header here to avoid runtime assert failure in gRPC
+        auto name = toStrView(args[1]);
+        if (!Target::validateHeaderName(name)) {
+            return (char*)"has invalid header name";
+        }
+        auto value = toStrView(args[2]);
+        if (!Target::validateHeaderValue(value)) {
+            return (char*)"has invalid header value";
+        }
+
+        getMainConf(cf)->headers.emplace_back(name, value);
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "OTel: %s", e.what());
         return (char*)NGX_CONF_ERROR;
     }
 
@@ -769,7 +809,7 @@ void* createMainConf(ngx_conf_t* cf)
 
 char* initMainConf(ngx_conf_t* cf, void* conf)
 {
-    auto mcf = (MainConf*)conf;
+    auto mcf = getMainConf(cf);
 
     ngx_conf_init_msec_value(mcf->interval, 5000);
     ngx_conf_init_size_value(mcf->batchSize, 512);
