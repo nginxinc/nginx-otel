@@ -36,9 +36,11 @@ jobs:
           make -j $(nproc)
       - name: Download otelcol
         run: |
-          curl -sLo - https://github.com/\
-          open-telemetry/opentelemetry-collector-releases/releases/download/\
-          v0.115.1/otelcol_0.115.1_linux_amd64.tar.gz | tar -xzv
+          LATEST=open-telemetry/opentelemetry-collector-releases/releases/latest
+          TAG=$(curl -s https://api.github.com/repos/${LATEST} |
+                jq -r .tag_name)
+          curl -sLo - https://github.com/${LATEST}/download/\
+          otelcol_${TAG:1}_linux_amd64.tar.gz | tar -xzv
       - name: Install test dependencies
         run: pip install -r tests/requirements.txt
       - name: Run tests
