@@ -288,5 +288,3 @@ def test_custom_resource_attributes(client, trace_service):
     assert get_attr(batch[0].resource, "service.name") == "test_service"
     assert get_attr(batch[0].resource, "my.name") == "my name"
     assert get_attr(batch[0].resource, "my.service") == "my service"
-
-    trace_service.batches.clear()
