@@ -28,8 +28,8 @@ http {
     }
 
     otel_trace on;
-    otel_service_name test_service;
-    otel_resource_attr my.name "my service";
+    {{ service_name }}
+    {{ res_attrs }}
 
     server {
         listen       127.0.0.1:18443 ssl;
@@ -241,7 +241,7 @@ def test_context(client, trace_service, parent, path):
 
 @pytest.mark.parametrize(
     "nginx_config",
-    [({"interval": "200ms", "scheme": "http://"})],
+    [{"interval": "200ms", "scheme": "http://"}],
     indirect=True,
 )
 @pytest.mark.parametrize("batch_count", [1, 3])
@@ -258,9 +258,40 @@ def test_batches(client, trace_service, batch_count):
     assert len(trace_service.batches) == batch_count
 
     for batch in trace_service.batches:
-        assert get_attr(batch[0].resource, "service.name") == "test_service"
-        assert get_attr(batch[0].resource, "my.name") == "my service"
+        assert (
+            get_attr(batch[0].resource, "service.name")
+            == "unknown_service:nginx"
+        )
         assert len(batch[0].scope_spans[0].spans) == batch_size
 
     time.sleep(0.3)  # wait for +1 request to be flushed
+    trace_service.batches.clear()
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "service_name": 'otel_service_name "test_service";',
+            "res_attrs": 'otel_resource_attr my.name "my name";\n'
+            + 'otel_resource_attr my.service "my service";',
+        }
+    ],
+    indirect=True,
+)
+def test_custom_resource_attributes(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/ok").status_code == 200
+
+    for _ in range(10):
+        if len(trace_service.batches):
+            break
+        time.sleep(0.001)
+
+    assert len(trace_service.batches) == 1
+
+    for batch in trace_service.batches:
+        assert get_attr(batch[0].resource, "service.name") == "test_service"
+        assert get_attr(batch[0].resource, "my.name") == "my name"
+        assert get_attr(batch[0].resource, "my.service") == "my service"
+
     trace_service.batches.clear()
