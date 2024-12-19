@@ -21,7 +21,7 @@ http {
     ssl_certificate_key localhost.key;
 
     otel_exporter {
-        endpoint 127.0.0.1:14317;
+        endpoint {{ scheme }}127.0.0.1:14317;
         interval {{ interval or "1ms" }};
         batch_size 3;
         batch_count 3;
@@ -239,7 +239,9 @@ def test_context(client, trace_service, parent, path):
 
 
 @pytest.mark.parametrize(
-    "nginx_config", [({"interval": "200ms"})], indirect=True
+    "nginx_config",
+    [({"interval": "200ms", "scheme": "http://"})],
+    indirect=True,
 )
 @pytest.mark.parametrize("batch_count", [1, 3])
 def test_batches(client, trace_service, batch_count):
