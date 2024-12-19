@@ -28,7 +28,6 @@ http {
     }
 
     otel_trace on;
-    {{ service_name }}
     {{ res_attrs }}
 
     server {
@@ -272,9 +271,11 @@ def test_batches(client, trace_service, batch_count):
     "nginx_config",
     [
         {
-            "service_name": 'otel_service_name "test_service";',
-            "res_attrs": 'otel_resource_attr my.name "my name";\n'
-            + 'otel_resource_attr my.service "my service";',
+            "res_attrs": """
+                otel_service_name "test_service";
+                otel_resource_attr my.name "my name";
+                otel_resource_attr my.service "my service";
+            """,
         }
     ],
     indirect=True,
@@ -282,12 +283,7 @@ def test_batches(client, trace_service, batch_count):
 def test_custom_resource_attributes(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
-    for _ in range(10):
-        if len(trace_service.batches):
-            break
-        time.sleep(0.001)
-
-    assert len(trace_service.batches) == 1
+    trace_service.wait_batch()
 
     for batch in trace_service.batches:
         assert get_attr(batch[0].resource, "service.name") == "test_service"

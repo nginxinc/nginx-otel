@@ -14,13 +14,15 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
         self.batches.append(request.resource_spans)
         return trace_service_pb2.ExportTracePartialSuccess()
 
-    def get_span(self):
+    def wait_batch(self):
         for _ in range(10):
             if len(self.batches):
                 break
             time.sleep(0.001)
-
         assert len(self.batches) == 1, "No spans received"
+
+    def get_span(self):
+        self.wait_batch()
         span = self.batches[0][0].scope_spans[0].spans.pop()
         self.batches.clear()
         return span
