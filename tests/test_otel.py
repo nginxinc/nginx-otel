@@ -28,7 +28,7 @@ http {
     }
 
     otel_trace on;
-    {{ res_attrs }}
+    {{ resource_attrs }}
 
     server {
         listen       127.0.0.1:18443 ssl;
@@ -271,7 +271,7 @@ def test_batches(client, trace_service, batch_count):
     "nginx_config",
     [
         {
-            "res_attrs": """
+            "resource_attrs": """
                 otel_service_name "test_service";
                 otel_resource_attr my.name "my name";
                 otel_resource_attr my.service "my service";
@@ -283,11 +283,10 @@ def test_batches(client, trace_service, batch_count):
 def test_custom_resource_attributes(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
-    trace_service.wait_one_batch()
+    batch = trace_service.get_batch()
 
-    for batch in trace_service.batches:
-        assert get_attr(batch[0].resource, "service.name") == "test_service"
-        assert get_attr(batch[0].resource, "my.name") == "my name"
-        assert get_attr(batch[0].resource, "my.service") == "my service"
+    assert get_attr(batch[0].resource, "service.name") == "test_service"
+    assert get_attr(batch[0].resource, "my.name") == "my name"
+    assert get_attr(batch[0].resource, "my.service") == "my service"
 
     trace_service.batches.clear()
