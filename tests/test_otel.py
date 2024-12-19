@@ -29,6 +29,7 @@ http {
 
     otel_trace on;
     otel_service_name test_service;
+    otel_resource_attr my.name "my service";
 
     server {
         listen       127.0.0.1:18443 ssl;
@@ -258,6 +259,7 @@ def test_batches(client, trace_service, batch_count):
 
     for batch in trace_service.batches:
         assert get_attr(batch[0].resource, "service.name") == "test_service"
+        assert get_attr(batch[0].resource, "my.name") == "my service"
         assert len(batch[0].scope_spans[0].spans) == batch_size
 
     time.sleep(0.3)  # wait for +1 request to be flushed
