@@ -283,7 +283,7 @@ def test_batches(client, trace_service, batch_count):
 def test_custom_resource_attributes(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
-    trace_service.wait_batch()
+    trace_service.wait_one_batch()
 
     for batch in trace_service.batches:
         assert get_attr(batch[0].resource, "service.name") == "test_service"
