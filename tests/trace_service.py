@@ -23,7 +23,10 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
         return self.batches.pop()
 
     def get_span(self):
-        return self.get_batch()[0].scope_spans[0].spans.pop()
+        batch = self.get_batch()
+        assert len(batch.scope_spans) == 1
+        assert len(batch.scope_spans[0].spans) == 1
+        return batch.scope_spans[0].spans.pop()
 
 
 @pytest.fixture(scope="module")
