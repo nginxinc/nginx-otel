@@ -25,6 +25,8 @@ http {
         interval {{ interval or "1ms" }};
         batch_size 3;
         batch_count 3;
+
+        {{ exporter_opts }}
     }
 
     otel_trace on;
@@ -288,3 +290,26 @@ def test_custom_resource_attributes(client, trace_service):
     assert get_attr(batch.resource, "service.name") == "test_service"
     assert get_attr(batch.resource, "my.name") == "my name"
     assert get_attr(batch.resource, "my.service") == "my service"
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "exporter_opts": """
+                header X-API-TOKEN api.value;
+                header Authorization "Basic value";
+            """,
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("trace_service", ["skip_otelcol"], indirect=True)
+def test_exporter_headers(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/ok").status_code == 200
+
+    assert trace_service.get_span().name == "/ok"
+
+    headers = dict(trace_service.last_metadata)
+    assert headers["x-api-token"] == "api.value"
+    assert headers["authorization"] == "Basic value"

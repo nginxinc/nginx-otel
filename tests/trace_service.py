@@ -12,6 +12,7 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
 
     def Export(self, request, context):
         self.batches.append(request.resource_spans)
+        self.last_metadata = context.invocation_metadata()
         return trace_service_pb2.ExportTracePartialSuccess()
 
     def get_batch(self):
@@ -31,13 +32,17 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
 
 
 @pytest.fixture(scope="module")
-def trace_service(pytestconfig, logger):
+def trace_service(request, pytestconfig, logger):
     server = grpc.server(concurrent.futures.ThreadPoolExecutor())
     trace_service = TraceService()
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(
         trace_service, server
     )
-    listen_addr = f"127.0.0.1:{24317 if pytestconfig.option.otelcol else 14317}"
+    trace_service.use_otelcol = (
+        pytestconfig.option.otelcol
+        and getattr(request, "param", "") != "skip_otelcol"
+    )
+    listen_addr = f"127.0.0.1:{24317 if trace_service.use_otelcol else 14317}"
     server.add_insecure_port(listen_addr)
     logger.info(f"Starting trace service at {listen_addr}...")
     server.start()
@@ -48,7 +53,7 @@ def trace_service(pytestconfig, logger):
 
 @pytest.fixture(scope="module")
 def otelcol(pytestconfig, testdir, logger, trace_service):
-    if pytestconfig.option.otelcol is None:
+    if not trace_service.use_otelcol:
         yield
         return
 
