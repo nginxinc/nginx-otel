@@ -20,7 +20,8 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
                 break
             time.sleep(0.001)
         assert len(self.batches) == 1
-        return self.batches.pop()
+        assert len(self.batches[0]) == 1
+        return self.batches.pop()[0]
 
     def get_span(self):
         batch = self.get_batch()
