@@ -19,7 +19,7 @@ def pytest_addoption(parser):
     parser.addoption("--globals", default="")
 
 
-def self_signed_cert(test_dir, name):
+def self_signed_cert(name):
     k = crypto.PKey()
     k.generate_key(crypto.TYPE_RSA, 2048)
     cert = crypto.X509()
@@ -29,11 +29,9 @@ def self_signed_cert(test_dir, name):
     cert.gmtime_adj_notAfter(365 * 86400)  # 365 days
     cert.set_pubkey(k)
     cert.sign(k, "sha512")
-    (test_dir / f"{name}.key").write_text(
-        crypto.dump_privatekey(crypto.FILETYPE_PEM, k).decode("utf-8")
-    )
-    (test_dir / f"{name}.crt").write_text(
-        crypto.dump_certificate(crypto.FILETYPE_PEM, cert).decode("utf-8")
+    return (
+        crypto.dump_privatekey(crypto.FILETYPE_PEM, k),
+        crypto.dump_certificate(crypto.FILETYPE_PEM, cert),
     )
 
 
@@ -66,7 +64,7 @@ def nginx_config(request, pytestconfig, testdir, logger):
 
 
 @pytest.fixture(scope="module")
-def nginx(testdir, pytestconfig, nginx_config, certs, logger, otelcol):
+def nginx(testdir, pytestconfig, nginx_config, cert, logger, otelcol):
     (testdir / "nginx.conf").write_text(nginx_config)
     logger.info("Starting nginx...")
     proc = subprocess.Popen(
@@ -96,5 +94,8 @@ def nginx(testdir, pytestconfig, nginx_config, certs, logger, otelcol):
 
 
 @pytest.fixture(scope="module")
-def certs(testdir):
-    self_signed_cert(testdir, "localhost")
+def cert(testdir):
+    key, cert = self_signed_cert("localhost")
+    (testdir / "localhost.key").write_text(key.decode("utf-8"))
+    (testdir / "localhost.crt").write_text(cert.decode("utf-8"))
+    yield (key, cert)

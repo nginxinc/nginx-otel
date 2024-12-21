@@ -21,7 +21,7 @@ http {
     ssl_certificate_key localhost.key;
 
     otel_exporter {
-        endpoint {{ scheme }}127.0.0.1:14317;
+        endpoint {{ endpoint or "127.0.0.1:14317" }};
         interval {{ interval or "1ms" }};
         batch_size 3;
         batch_count 3;
@@ -242,7 +242,7 @@ def test_context(client, trace_service, parent, path):
 
 @pytest.mark.parametrize(
     "nginx_config",
-    [{"interval": "200ms", "scheme": "http://"}],
+    [{"interval": "200ms", "endpoint": "http://127.0.0.1:14317"}],
     indirect=True,
 )
 @pytest.mark.parametrize("batch_count", [1, 3])
@@ -313,3 +313,19 @@ def test_exporter_headers(client, trace_service):
     headers = dict(trace_service.last_metadata)
     assert headers["x-api-token"] == "api.value"
     assert headers["authorization"] == "Basic value"
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "endpoint": "https://localhost:14318",
+            "exporter_opts": "trusted_certificate localhost.crt;",
+        }
+    ],
+    indirect=True,
+)
+def test_tls_export(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/ok").status_code == 200
+
+    assert trace_service.get_span().name == "/ok"
