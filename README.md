@@ -142,6 +142,12 @@ cd nginx
 auto/configure --with-compat
 ```
 
+Make sure the SSL module is enabled before compiling.
+
+```
+auto/configure --with-http_ssl_module
+```
+
 Exit the NGINX directory and clone the `ngx_otel_module` repository.
 ```bash
 cd ..
