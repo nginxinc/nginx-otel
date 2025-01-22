@@ -296,10 +296,10 @@ ngx_int_t setHeader(ngx_http_request_t* r, StrView name, StrView value)
             return NGX_ERROR;
         }
 
+        *header = {};
         header->hash = hash;
         header->key = toNgxStr(name);
         header->lowcase_key = header->key.data;
-        header->next = NULL;
     }
 
     header->value = toNgxStr(value);
