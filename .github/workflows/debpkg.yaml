@@ -11,7 +11,7 @@ jobs:
         with:
           buildpackage-opts: --build=binary --no-sign
           host-arch: arm64
-          apt-opts: ca-certificates
+          extra-build-deps: ca-certificates
       - uses: jtdor/build-deb-action@v1
         env:
           DEB_BUILD_OPTIONS: noautodbgsym
