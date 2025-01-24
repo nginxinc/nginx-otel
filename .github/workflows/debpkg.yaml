@@ -18,4 +18,4 @@ jobs:
         with:
           buildpackage-opts: --build=binary --no-sign
           host-arch: amd64
-          apt-opts: ca-certificates
+          extra-build-deps: ca-certificates
