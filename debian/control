@@ -11,6 +11,7 @@ Build-Depends: debhelper-compat (= 12),
                pkg-config,
                libc-ares-dev,
                libre2-dev,
+               git,
                cmake
 Standards-Version: 4.6.2
 Homepage: https://github.com/nginxinc/nginx-otel
