@@ -1,4 +1,4 @@
-libnginx-mod-http-brotli (1.0.0~rc-5) unstable; urgency=medium
+libnginx-mod-http-otel (1.0.0~rc-5) unstable; urgency=medium
 
   * Initial Release
 
