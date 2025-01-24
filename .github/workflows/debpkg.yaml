@@ -9,5 +9,5 @@ jobs:
         env:
           DEB_BUILD_OPTIONS: noautodbgsym
         with:
-          buildpackage-opts: --build=binary --no-sign
+          buildpackage-opts: -us -uc -b -rfakeroot
           extra-build-deps: ca-certificates
