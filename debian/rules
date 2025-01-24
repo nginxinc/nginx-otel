@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/default.mk
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+NGINX_VERSION = $(shell /usr/sbin/nginx -V 2>&1 | sed -ne 's,nginx version: nginx/,,p')
+DEB_VERSION_EPOCH = $(call dpkg_late_eval,DEB_VERSION_EPOCH,echo '$(DEB_VERSION_EPOCH_UPSTREAM)' | sed -e 's/[^:]*$$//')
+DEB_VERSION_REVISION = $(call dpkg_late_eval,DEB_VERSION_REVISION,echo '$(DEB_VERSION_UPSTREAM_REVISION)' | sed -e 's/^.*-//')
+NGINX_DEB_VERSION = $(DEB_VERSION_EPOCH)$(DEB_VERSION_UPSTREAM)+$(NGINX_VERSION)-$(DEB_VERSION_REVISION)
+
+override_dh_gencontrol:
+	dh_gencontrol --remaining-packages -- -v$(NGINX_DEB_VERSION)
