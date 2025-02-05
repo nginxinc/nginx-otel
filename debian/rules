@@ -9,5 +9,5 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 override_dh_auto_build:
 	mkdir -p obj-${DEB_BUILD_GNU_TYPE} && cd obj-${DEB_BUILD_GNU_TYPE} && \
-		cmake -DNGX_OTEL_NGINX_BUILD_DIR=/usr/share/nginx/src/objs .. && \
+		cmake -DNGX_OTEL_NGINX_BUILD_DIR=/usr/share/nginx/src/objs -DNGX_OTEL_NGINX_DIR=/usr/share/nginx/src .. && \
 		make -j12 "INSTALL=install --strip-program=true"
