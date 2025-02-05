@@ -11,3 +11,7 @@ jobs:
         with:
           buildpackage-opts: -us -uc -b -rfakeroot
           extra-build-deps: ca-certificates
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Upload deb package
+          path: debian/artifacts/*.deb
