@@ -1,0 +1,28 @@
+Source: libnginx-mod-http-otel
+Section: httpd
+Priority: optional
+Maintainer: Aldemir Akpinar <aldemir.akpinar@moya.app>
+Uploaders: Aldemir Akpinar <aldemir.akpinar@moya.app>
+Build-Depends: debhelper-compat (= 12),
+               dh-sequence-nginx,
+               libssl-dev,
+               zlib1g-dev,
+               libpcre3-dev,
+               pkg-config,
+               libc-ares-dev,
+               libre2-dev,
+               git,
+               cmake
+Standards-Version: 4.6.2
+Homepage: https://github.com/nginxinc/nginx-otel
+Vcs-Git: https://github.com/moya-app/nginx-otel
+Vcs-Browser: https://github.com/moya-app/nginx-otel
+Rules-Requires-Root: no
+
+Package: libnginx-mod-http-otel
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Description: OpenTelemetry (OTel) is an observability framework for monitoring, tracing, troubleshooting, and optimizing applications. OTel enables the collection of telemetry data from a deployed application stack. The ngx_otel_module dynamic module enables NGINX Open Source or NGINX Plus to send telemetry data to an OTel collector. It provides support for W3C trace context propagation, OpenTelemetry Protocol (OTLP)/gRPC trace exports.
+

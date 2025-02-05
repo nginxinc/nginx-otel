@@ -1,0 +1,6 @@
+libnginx-mod-http-otel (1.0.0) unstable; urgency=medium
+
+  * Initial Release
+
+ -- Aldemir Akpinar <aldemir.akpinar@moya.app>  Fri, 24 Jan 2025 13:01:24 +0300
+
