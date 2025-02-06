@@ -1,27 +1,15 @@
 name: Debian otel deb package generator
 
-on: 
-  workflow_call:
-    inputs:
-      runner_x86:
-        description: 'The runner to use for x86 builds'
-        required: false
-        type: string
-        default: buildjet-2vcpu-ubuntu-2204
-      runner_arm:
-        description: 'The runner to use for arm64 builds'
-        required: false
-        type: string
-        default: buildjet-2vcpu-ubuntu-2204-arm
+on: push
 
 jobs:
   strategy:
     matrix:
       build:
         - arch: amd64
-          runs-on: ${{ inputs.runner_x86 }}
+          runs-on: buildjet-2vcpu-ubuntu-2204
         - arch: arm64
-          runs-on: ${{ inputs.runner_arm }}
+          runs-on: buildjet-2vcpu-ubuntu-2204-arm
   build-debs:
     runs-on: ${{ matrix.build.runs-on }}
     steps:
