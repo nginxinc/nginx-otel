@@ -3,14 +3,14 @@ name: Debian otel deb package generator
 on: push
 
 jobs:
-  strategy:
-    matrix:
-      build:
-        - arch: amd64
-          runs-on: buildjet-2vcpu-ubuntu-2204
-        - arch: arm64
-          runs-on: buildjet-2vcpu-ubuntu-2204-arm
   build-debs:
+    strategy:
+      matrix:
+        build:
+          - arch: amd64
+            runs-on: buildjet-2vcpu-ubuntu-2204
+          - arch: arm64
+            runs-on: buildjet-2vcpu-ubuntu-2204-arm
     runs-on: ${{ matrix.build.runs-on }}
     steps:
       - uses: actions/checkout@v4
