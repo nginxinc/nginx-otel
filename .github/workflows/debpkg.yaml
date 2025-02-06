@@ -21,9 +21,7 @@ jobs:
         with:
           buildpackage-opts: -us -uc -b -rfakeroot
           extra-build-deps: ca-certificates
-
-      - name: Tag to Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         #if: startsWith(github.ref, 'refs/tags/')
         with:
           files: {{ steps.artifact.outputs.value }}
