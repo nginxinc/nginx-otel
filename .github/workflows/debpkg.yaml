@@ -1,17 +1,39 @@
-on: push
+on: 
+  push:
+    inputs:
+      runner_x86:
+        description: 'The runner to use for x86 builds'
+        required: false
+        type: string
+        default: buildjet-2vcpu-ubuntu-2204
+      runner_arm:
+        description: 'The runner to use for arm64 builds'
+        required: false
+        type: string
+        default: buildjet-2vcpu-ubuntu-2204-arm
 
 jobs:
+  strategy:
+    matrix:
+      build:
+        - arch: amd64
+          runs-on: ${{ inputs.runner_x86 }}
+        - arch: arm64
+          runs-on: ${{ inputs.runner_arm }}
   build-debs:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.build.runs-on }}
     steps:
       - uses: actions/checkout@v4
       - uses: jtdor/build-deb-action@v1
+        name: build-deb
         env:
           DEB_BUILD_OPTIONS: noautodbgsym
         with:
           buildpackage-opts: -us -uc -b -rfakeroot
           extra-build-deps: ca-certificates
-      - uses: actions/upload-artifact@v4
+
+      - name: Tag to Release
+        uses: softprops/action-gh-release@v2
+        #if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: Upload deb package
-          path: debian/artifacts/*.deb
+          files: {{ steps.artifact.outputs.value }}
