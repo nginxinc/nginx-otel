@@ -1,5 +1,5 @@
 on: 
-  push:
+  workflow_call:
     inputs:
       runner_x86:
         description: 'The runner to use for x86 builds'
