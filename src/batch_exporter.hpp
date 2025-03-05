@@ -21,6 +21,10 @@ public:
         opentelemetry::trace::SpanId parent;
         uint64_t start;
         uint64_t end;
+        enum SpanKind{
+            CLIENT   = opentelemetry::proto::trace::v1::Span::SPAN_KIND_CLIENT,
+            SERVER   = opentelemetry::proto::trace::v1::Span::SPAN_KIND_SERVER
+        } type;
     };
 
     class Span {
@@ -32,7 +36,7 @@ public:
             : span(span)
         {
             span->set_kind(
-                opentelemetry::proto::trace::v1::Span::SPAN_KIND_SERVER);
+                (opentelemetry::proto::trace::v1::Span::SpanKind) info.type);
 
             // Short setters, like set_name(), use additional std::string as an
             // intermediary at least up to v21.5 of protobuf.
