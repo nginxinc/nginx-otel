@@ -1,0 +1,45 @@
+name: Alpine build
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: alpine
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apk add build-base openssl-dev zlib-dev pcre2-dev \
+                  cmake git grpc-dev protobuf-dev \
+                  python3
+      - name: Checkout nginx
+        uses: actions/checkout@v4
+        with:
+          repository: nginx/nginx
+          path: nginx
+      - name: Build nginx
+        working-directory: nginx
+        run: |
+          auto/configure --with-compat --with-http_ssl_module \
+                         --with-http_v2_module --with-http_v3_module
+          make -j $(nproc)
+      - name: Build module
+        working-directory: nginx
+        run: |
+          NGX_OTEL_CMAKE_OPTS="-D NGX_OTEL_GRPC=package" \
+              auto/configure --with-compat --add-dynamic-module=..
+          make -j $(nproc) modules
+      - name: Install test dependencies
+        run: |
+          python -m venv tests-venv
+          tests-venv/bin/pip install -r tests/requirements.txt
+      - name: Run tests
+        run: |
+          tests-venv/bin/pytest tests --maxfail=10 --nginx=nginx/objs/nginx \
+                                      --module=nginx/objs/ngx_otel_module.so
