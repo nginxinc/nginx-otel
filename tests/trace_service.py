@@ -19,16 +19,20 @@ class TraceService(trace_service_pb2_grpc.TraceServiceServicer):
         for _ in range(10):
             if len(self.batches):
                 break
-            time.sleep(0.001)
+            time.sleep(1)
         assert len(self.batches) == 1
         assert len(self.batches[0]) == 1
         return self.batches.pop()[0]
 
-    def get_span(self):
+    def get_span(self, n):
         batch = self.get_batch()
         assert len(batch.scope_spans) == 1
-        assert len(batch.scope_spans[0].spans) == 1
-        return batch.scope_spans[0].spans.pop()
+        l = len(batch.scope_spans[0].spans)
+        assert l == n
+        s = batch.scope_spans[0].spans[l - n:]
+        for _ in range(n):
+            batch.scope_spans[0].spans.pop()
+        return s[0] if len(s) == 1 else s
 
 
 @pytest.fixture(scope="module")
