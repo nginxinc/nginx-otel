@@ -12,14 +12,14 @@ jobs:
     container: alpine
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install dependencies
         run: |
           apk add build-base openssl-dev zlib-dev pcre2-dev \
                   cmake git grpc-dev protobuf-dev \
                   python3
       - name: Checkout nginx
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: nginx/nginx
           path: nginx

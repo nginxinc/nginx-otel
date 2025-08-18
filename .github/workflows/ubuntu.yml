@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake libc-ares-dev
       - name: Checkout nginx
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: nginx/nginx
           path: nginx
