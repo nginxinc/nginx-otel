@@ -1,7 +1,13 @@
 ngx_addon_name=ngx_otel_module
 
-cmake -D NGX_OTEL_NGINX_BUILD_DIR=$NGX_OBJS \
-      -D CMAKE_LIBRARY_OUTPUT_DIRECTORY=$PWD/$NGX_OBJS \
+case "$NGX_OBJS" in
+    /*) ngx_module_outdir="$NGX_OBJS" ;;
+    *)  ngx_module_outdir="$PWD/$NGX_OBJS" ;;
+esac
+
+cmake -D "NGX_OTEL_NGINX_DIR=$PWD" \
+      -D "NGX_OTEL_NGINX_BUILD_DIR=$NGX_OBJS" \
+      -D "CMAKE_LIBRARY_OUTPUT_DIRECTORY=$ngx_module_outdir" \
       -D "CMAKE_C_FLAGS=$NGX_CC_OPT" \
       -D "CMAKE_CXX_FLAGS=$NGX_CC_OPT" \
       -D "CMAKE_MODULE_LINKER_FLAGS=$NGX_LD_OPT" \
