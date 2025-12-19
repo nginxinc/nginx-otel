@@ -8,7 +8,7 @@ set(NGX_OTEL_NGINX_DIR "${NGX_OTEL_NGINX_BUILD_DIR}/.."
 
 set(NGX_OTEL_GRPC e241f37befe7ba4688effd84bfbf99b0f681a2f7 # v1.49.4
     CACHE STRING "gRPC tag to download or 'package' to use preinstalled")
-set(NGX_OTEL_SDK  11d5d9e0d8fd8ba876c8994714cc2647479b6574 # v1.11.0
+set(NGX_OTEL_SDK  ea1f0d61ce5baa5584b097266bf133d1f31e3607 # v1.23.0
     CACHE STRING "OTel SDK tag to download or 'package' to use preinstalled")
 set(NGX_OTEL_PROTO_DIR  ""  CACHE PATH "OTel proto files root")
 set(NGX_OTEL_DEV        OFF CACHE BOOL "Enforce compiler warnings")
