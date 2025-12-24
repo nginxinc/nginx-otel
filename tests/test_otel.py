@@ -31,6 +31,7 @@ http {
 
     otel_trace on;
     {{ resource_attrs }}
+    {{ span_attrs or "" }}
 
     server {
         listen       127.0.0.1:18443 ssl;
@@ -40,6 +41,7 @@ http {
         http2 on;
 
         server_name  localhost;
+        {{ server_span_attrs or "" }}
 
         location /ok {
             return 200 "OK";
@@ -121,6 +123,13 @@ def trace_headers(ctx):
 def get_attr(span, name):
     for value in (a.value for a in span.attributes if a.key == name):
         return getattr(value, value.WhichOneof("value"))
+
+
+def get_all_attrs(span, name):
+    return [
+        getattr(a.value, a.value.WhichOneof("value"))
+        for a in span.attributes if a.key == name
+    ]
 
 
 @pytest.fixture
@@ -329,3 +338,64 @@ def test_tls_export(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
     assert trace_service.get_span().name == "/ok"
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "span_attrs": """
+                otel_span_attr config.level "http";
+                otel_span_attr http.defined_at "http-block";
+            """,
+            "server_span_attrs": """
+                otel_span_attr config.level "server";
+                otel_span_attr server.defined_at "server-block";
+            """,
+        }
+    ],
+    indirect=True,
+)
+def test_span_attr_merge(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/ok").status_code == 200
+
+    span = trace_service.get_span()
+
+    http_level_attrs = get_all_attrs(span, "config.level")
+    assert "http" in http_level_attrs
+    assert "server" in http_level_attrs
+
+    assert get_attr(span, "http.defined_at") == "http-block"
+    assert get_attr(span, "server.defined_at") == "server-block"
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "span_attrs": """
+                otel_span_attr config.level "http";
+                otel_span_attr http.defined_at "http-block";
+            """,
+            "server_span_attrs": """
+                otel_span_attr config.level "server";
+                otel_span_attr server.defined_at "server-block";
+            """,
+        }
+    ],
+    indirect=True,
+)
+def test_span_attr_merge_with_location(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/custom").status_code == 200
+
+    span = trace_service.get_span()
+
+    http_level_attrs = get_all_attrs(span, "config.level")
+    assert "http" in http_level_attrs
+    assert "server" in http_level_attrs
+
+    assert get_attr(span, "http.defined_at") == "http-block"
+    assert get_attr(span, "server.defined_at") == "server-block"
+
+    assert get_attr(span, "http.request.completion") == "OK"
+    assert get_attr(span, "http.request") == "GET /custom HTTP/1.1"

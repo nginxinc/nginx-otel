@@ -959,6 +959,33 @@ char* mergeLocationConf(ngx_conf_t* cf, void* parent, void* child)
 
     if (conf->spanAttrs.elts == NULL) {
         conf->spanAttrs = prev->spanAttrs;
+    } else if (prev->spanAttrs.elts != NULL) {
+        ngx_array_t merged;
+        if (ngx_array_init(&merged, cf->pool,
+                prev->spanAttrs.nelts + conf->spanAttrs.nelts,
+                sizeof(SpanAttr)) != NGX_OK) {
+            return (char*)NGX_CONF_ERROR;
+        }
+
+        auto prevAttrs = (SpanAttr*)prev->spanAttrs.elts;
+        for (ngx_uint_t i = 0; i < prev->spanAttrs.nelts; i++) {
+            auto attr = (SpanAttr*)ngx_array_push(&merged);
+            if (attr == NULL) {
+                return (char*)NGX_CONF_ERROR;
+            }
+            *attr = prevAttrs[i];
+        }
+
+        auto confAttrs = (SpanAttr*)conf->spanAttrs.elts;
+        for (ngx_uint_t i = 0; i < conf->spanAttrs.nelts; i++) {
+            auto attr = (SpanAttr*)ngx_array_push(&merged);
+            if (attr == NULL) {
+                return (char*)NGX_CONF_ERROR;
+            }
+            *attr = confAttrs[i];
+        }
+
+        conf->spanAttrs = merged;
     }
 
     auto mcf = getMainConf(cf);
