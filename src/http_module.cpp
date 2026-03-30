@@ -859,6 +859,8 @@ template <class Id>
 ngx_int_t hexIdVar(ngx_http_request_t* r, ngx_http_variable_value_t* v,
     uintptr_t data)
 {
+    namespace nostd = opentelemetry::nostd;
+
     auto ctx = ensureOtelCtx(r);
     if (!ctx) {
         return NGX_ERROR;
@@ -867,13 +869,13 @@ ngx_int_t hexIdVar(ngx_http_request_t* r, ngx_http_variable_value_t* v,
     auto id = (Id*)((char*)ctx + data);
 
     if (id->IsValid()) {
-        auto size = id->Id().size() * 2;
+        constexpr auto size = 2 * Id::kSize;
         auto buf = (char*)ngx_pnalloc(r->pool, size);
         if (buf == NULL) {
             return NGX_ERROR;
         }
 
-        id->ToLowerBase16({buf, size});
+        id->ToLowerBase16(nostd::span<char, size>{buf, size});
 
         v->len = size;
         v->valid = 1;

@@ -67,16 +67,19 @@ struct TraceContext {
     static void serialize(const TraceContext& tc, char* out)
     {
         using namespace opentelemetry::trace::propagation;
+        namespace nostd = opentelemetry::nostd;
 
         *out++ = '0';
         *out++ = '0';
         *out++ = '-';
 
-        tc.traceId.ToLowerBase16({out, kTraceIdSize});
+        tc.traceId.ToLowerBase16(
+            nostd::span<char, kTraceIdSize>{out, kTraceIdSize});
         out += kTraceIdSize;
         *out++ = '-';
 
-        tc.spanId.ToLowerBase16({out, kSpanIdSize});
+        tc.spanId.ToLowerBase16(
+            nostd::span<char, kSpanIdSize>{out, kSpanIdSize});
         out += kSpanIdSize;
         *out++ = '-';
 
