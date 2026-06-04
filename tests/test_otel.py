@@ -32,6 +32,11 @@ http {
     otel_trace on;
     {{ resource_attrs }}
 
+    upstream uptest {
+        otel_upstream_span_enable;
+        server 127.0.0.1:18080;
+    }
+
     server {
         listen       127.0.0.1:18443 ssl;
         listen       127.0.0.1:18443 quic;
@@ -93,6 +98,12 @@ http {
             add_header "X-Otel-Tracestate" $http_tracestate;
             return 204;
         }
+
+        location /upstream_trace {
+            otel_trace         on;
+            otel_trace_context inject;
+            proxy_pass http://uptest/ok;
+        }
     }
 }
 
@@ -140,7 +151,7 @@ def test_http09(trace_service, nginx):
 
     assert get_http09("127.0.0.1", 18080, "/ok") == "OK"
 
-    span = trace_service.get_span()
+    span = trace_service.get_span(1)
     assert span.name == "/ok"
 
 
@@ -154,8 +165,7 @@ def test_default_attributes(client, trace_service, http_ver, path, status):
     if http_ver == "3.0":
         client.quic_cache_layer.add_domain("127.0.0.1", port)
     r = client.get(f"{scheme}://127.0.0.1:{port}{path}", verify=False)
-
-    span = trace_service.get_span()
+    span = trace_service.get_span(1)
     assert span.name == path
 
     assert get_attr(span, "http.method") == "GET"
@@ -178,7 +188,7 @@ def test_default_attributes(client, trace_service, http_ver, path, status):
 def test_custom_attributes(client, trace_service):
     assert client.get("http://127.0.0.1:18080/custom").status_code == 200
 
-    span = trace_service.get_span()
+    span = trace_service.get_span(1)
     assert span.name == "custom_location"
 
     assert get_attr(span, "http.request.completion") == "OK"
@@ -193,12 +203,22 @@ def test_trace_off(client, trace_service):
     time.sleep(0.01)  # wait for spans
     assert len(trace_service.batches) == 0
 
+def test_upstream_tracing(client, trace_service):
+    assert client.get("http://127.0.0.1:18080/upstream_trace").status_code == 200
+    spans = trace_service.get_span(3)
+    client_spans = [x for x in spans if x.kind.__str__() == '2']
+    server_span = [x for x in spans if x.kind.__str__() == '3']
+    assert len(client_spans) == 2
+    assert len(server_span) == 1
+    for i in client_spans:
+        assert get_attr(i, "http.status_code") == 200
+
 
 @pytest.mark.parametrize("parent", [None, parent_ctx])
 def test_variables(client, trace_service, parent):
     r = client.get("http://127.0.0.1:18080/vars", headers=trace_headers(parent))
 
-    span = trace_service.get_span()
+    span = trace_service.get_span(1)
 
     if parent:
         assert span.trace_id.hex() == parent.trace_id
@@ -220,7 +240,7 @@ def test_context(client, trace_service, parent, path):
 
     r = client.get(f"http://127.0.0.1:18080{path}", headers=headers)
 
-    span = trace_service.get_span()
+    span = trace_service.get_span(1)
 
     if path in ["/extract", "/propagate"] and parent:
         assert span.trace_id.hex() == parent.trace_id
@@ -308,7 +328,7 @@ def test_custom_resource_attributes(client, trace_service):
 def test_exporter_headers(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
-    assert trace_service.get_span().name == "/ok"
+    assert trace_service.get_span(1).name == "/ok"
 
     headers = dict(trace_service.last_metadata)
     assert headers["x-api-token"] == "api.value"
@@ -328,4 +348,4 @@ def test_exporter_headers(client, trace_service):
 def test_tls_export(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
-    assert trace_service.get_span().name == "/ok"
+    assert trace_service.get_span(1).name == "/ok"
