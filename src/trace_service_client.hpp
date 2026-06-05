@@ -14,6 +14,8 @@ struct Target {
     std::string endpoint;
     bool ssl;
     std::string trustedCert;
+    std::string clientKey;
+    std::string clientCert;
     HeaderVec headers;
 
     static bool validateHeaderName(StrView name)
@@ -44,6 +46,8 @@ public:
         if (target.ssl) {
             grpc::SslCredentialsOptions options;
             options.pem_root_certs = target.trustedCert;
+            options.pem_private_key = target.clientKey;
+            options.pem_cert_chain = target.clientCert;
 
             creds = grpc::SslCredentials(options);
         } else {

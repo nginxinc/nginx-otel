@@ -30,6 +30,8 @@ struct MainConf : MainConfBase {
     std::map<StrView, StrView> resourceAttrs;
     bool ssl;
     std::string trustedCert;
+    std::string clientKey;
+    std::string clientCert;
     Target::HeaderVec headers;
 };
 
@@ -50,6 +52,8 @@ char* setExporter(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addResourceAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addSpanAttr(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* setClientCertificateChain(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
+char* setClientPrivateKey(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 char* addExporterHeader(ngx_conf_t* cf, ngx_command_t* cmd, void* conf);
 
 namespace Propagation {
@@ -121,6 +125,14 @@ ngx_command_t gExporterCommands[] = {
     { ngx_string("trusted_certificate"),
       NGX_CONF_TAKE1,
       setTrustedCertificate },
+
+    { ngx_string("client_private_key"),
+      NGX_CONF_TAKE1,
+      setClientPrivateKey },
+
+    { ngx_string("client_certificate_chain"),
+      NGX_CONF_TAKE1,
+      setClientCertificateChain },
 
     { ngx_string("header"),
       NGX_CONF_TAKE2,
@@ -586,6 +598,8 @@ ngx_int_t initWorkerProcess(ngx_cycle_t* cycle)
         target.endpoint = std::string(toStrView(mcf->endpoint));
         target.ssl = mcf->ssl;
         target.trustedCert = mcf->trustedCert;
+        target.clientKey = mcf->clientKey;
+        target.clientCert = mcf->clientCert;
         target.headers = mcf->headers;
 
         gExporter.reset(new BatchExporter(
@@ -745,6 +759,72 @@ char* setTrustedCertificate(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
 
         mcf->trustedCert.resize(size);
         file.read(&mcf->trustedCert[0], size);
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "failed to read \"%V\": %s", &path, e.what());
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* setClientCertificateChain(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto path = ((ngx_str_t*)cf->args->elts)[1];
+    auto mcf = getMainConf(cf);
+
+    if (ngx_get_full_name(cf->pool, &cf->cycle->conf_prefix, &path) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    try {
+        std::ifstream file{(const char*)path.data, std::ios::binary};
+        if (!file.is_open()) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
+                "failed to open \"%V\"", &path);
+            return (char*)NGX_CONF_ERROR;
+        }
+        file.exceptions(std::ios::failbit | std::ios::badbit);
+        file.peek(); // trigger early error for dirs
+
+        size_t size = file.seekg(0, std::ios::end).tellg();
+        file.seekg(0);
+
+        mcf->clientCert.resize(size);
+        file.read(&mcf->clientCert[0], size);
+    } catch (const std::exception& e) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+            "failed to read \"%V\": %s", &path, e.what());
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    return NGX_CONF_OK;
+}
+
+char* setClientPrivateKey(ngx_conf_t* cf, ngx_command_t* cmd, void* conf)
+{
+    auto path = ((ngx_str_t*)cf->args->elts)[1];
+    auto mcf = getMainConf(cf);
+
+    if (ngx_get_full_name(cf->pool, &cf->cycle->conf_prefix, &path) != NGX_OK) {
+        return (char*)NGX_CONF_ERROR;
+    }
+
+    try {
+        std::ifstream file{(const char*)path.data, std::ios::binary};
+        if (!file.is_open()) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
+                "failed to open \"%V\"", &path);
+            return (char*)NGX_CONF_ERROR;
+        }
+        file.exceptions(std::ios::failbit | std::ios::badbit);
+        file.peek(); // trigger early error for dirs
+
+        size_t size = file.seekg(0, std::ios::end).tellg();
+        file.seekg(0);
+
+        mcf->clientKey.resize(size);
+        file.read(&mcf->clientKey[0], size);
     } catch (const std::exception& e) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
             "failed to read \"%V\": %s", &path, e.what());

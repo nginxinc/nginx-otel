@@ -329,3 +329,23 @@ def test_tls_export(client, trace_service):
     assert client.get("http://127.0.0.1:18080/ok").status_code == 200
 
     assert trace_service.get_span().name == "/ok"
+
+
+@pytest.mark.parametrize(
+    "nginx_config",
+    [
+        {
+            "endpoint": "https://localhost:14319",
+            "exporter_opts": """
+                trusted_certificate localhost.crt;
+                client_private_key localhost.key;
+                client_certificate_chain localhost.crt;
+            """,
+        }
+    ],
+    indirect=True,
+)
+def test_mtls_export(client, trace_service):
+    assert client.get("https://127.0.0.1:18080/ok").status_code == 200
+
+    assert trace_service.get_span().name == "/ok"

@@ -45,9 +45,15 @@ def trace_service(request, pytestconfig, logger, cert):
     listen_addr = f"127.0.0.1:{24317 if trace_service.use_otelcol else 14317}"
     server.add_insecure_port(listen_addr)
     if not trace_service.use_otelcol:
+        # TLS (server-only auth)
         creds = grpc.ssl_server_credentials([cert])
         server.add_secure_port("127.0.0.1:14318", creds)
-        listen_addr += " and 127.0.0.1:14318"
+        # mTLS (require client cert)
+        mtls_creds = grpc.ssl_server_credentials(
+            [cert], root_certificates=cert[1], require_client_auth=True
+        )
+        server.add_secure_port("127.0.0.1:14319", mtls_creds)
+        listen_addr += " and 127.0.0.1:14318 and 127.0.0.1:14319"
     logger.info(f"Starting trace service at {listen_addr}...")
     server.start()
     yield trace_service
