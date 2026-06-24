@@ -93,6 +93,25 @@ http {
             add_header "X-Otel-Tracestate" $http_tracestate;
             return 204;
         }
+
+        # SSI page that pulls in an internal subrequest via proxy_pass (#119)
+        location = /page.html {
+            otel_trace off;
+            ssi on;
+        }
+
+        location = /_frag {
+            internal;
+            otel_trace off;
+            otel_trace_context propagate;
+            proxy_pass http://127.0.0.1:18080/echo_tp;
+        }
+
+        # backend echoing the traceparent it received into the body
+        location = /echo_tp {
+            otel_trace off;
+            return 200 $http_traceparent;
+        }
     }
 }
 
@@ -238,6 +257,35 @@ def test_context(client, trace_service, parent, path):
 
     assert r.headers.get("X-Otel-Traceparent") == headers["Traceparent"]
     assert r.headers.get("X-Otel-Tracestate") == headers["Tracestate"]
+
+
+@pytest.mark.parametrize("parent", [None, parent_ctx])
+def test_subrequest_inject(client, trace_service, testdir, parent):
+    # #119: an SSI `include virtual` subrequest that proxies upstream must
+    # still get a traceparent injected on its upstream call. The subrequest
+    # is flagged r->internal, so the early `if (r->internal)` guard in
+    # onRequestStart used to drop it before the inject path.
+    (testdir / "page.html").write_text('x<!--# include virtual="/_frag" -->x')
+
+    r = client.get(
+        "http://127.0.0.1:18080/page.html", headers=trace_headers(parent)
+    )
+
+    # body is "x" + (traceparent echoed by backend) + "x"
+    echoed = r.text[1:-1]
+
+    if parent:
+        # subrequest must propagate the parent's trace id downstream...
+        assert echoed.startswith(f"00-{parent.trace_id}-")
+        # ...under a fresh nginx span, not the parent's span id. Without the
+        # fix, proxy_pass merely forwards the inbound traceparent verbatim
+        # (still carrying the parent's span id), so this guards against that
+        # false positive and proves the inject path actually ran.
+        assert not echoed.startswith(f"00-{parent.trace_id}-{parent.span_id}-")
+    else:
+        # no inbound context: a fresh trace id is generated and injected
+        assert echoed.startswith("00-")
+        assert len(echoed) == 55  # 00-<32>-<16>-<2>
 
 
 @pytest.mark.parametrize(

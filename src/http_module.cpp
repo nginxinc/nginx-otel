@@ -291,6 +291,15 @@ ngx_int_t setHeader(ngx_http_request_t* r, StrView name, StrView value)
             return NGX_ERROR;
         }
 
+        // Subrequests shallow-copy ngx_list_t from the main request.  Recompute
+        // last so appended headers are visible through this request's list head.
+        for (auto part = &headers->part; part; part = part->next) {
+            if (part->next == NULL) {
+                headers->last = part;
+                break;
+            }
+        }
+
         header = (ngx_table_elt_t*)ngx_list_push(headers);
         if (header == NULL) {
             return NGX_ERROR;
@@ -353,8 +362,35 @@ OtelCtx* ensureOtelCtx(ngx_http_request_t* r)
     return ctx;
 }
 
+ngx_int_t injectSubrequest(ngx_http_request_t* r)
+{
+    // Subrequests (SSI 'include virtual', auth_request, mirror, ...) may share
+    // the main request's trace context, so they must not make their own sampling
+    // decision (that would clobber the shared ctx->current.sampled). Their only
+    // job here is to carry trace context onto an upstream proxy call.
+    auto lcf = getLocationConf(r);
+    if (!(lcf->traceContext & Propagation::Inject)) {
+        return NGX_DECLINED;
+    }
+
+    auto ctx = ensureOtelCtx(r);
+    if (!ctx) {
+        return NGX_ERROR;
+    }
+
+    auto rc = inject(r, ctx->current);
+    return rc == NGX_OK ? NGX_DECLINED : rc;
+}
+
 ngx_int_t onRequestStart(ngx_http_request_t* r)
 {
+    // Subrequests are flagged r->internal too, but unlike internal redirects
+    // they may proxy upstream and must still inject the inherited trace
+    // context. Handle them on a dedicated inject-only path.
+    if (r != r->main) {
+        return injectSubrequest(r);
+    }
+
     // don't let internal redirects to override sampling decision
     if (r->internal) {
         return NGX_DECLINED;
